@@ -1,15 +1,27 @@
-from flask import Flask, render_template, jsonify, request, Response
-import random
+from flask import Flask, render_template, jsonify, request
 import time
-import json
-import os
-from flask_socketio import SocketIO
-import eventlet
-import csv
+import random
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+# In-memory store for demonstration purposes
 flight_history = []
+
+# Simulated force vector data
+def generate_simulated_vectors():
+    return {
+        "force": {
+            "x": random.uniform(-1, 1),
+            "y": random.uniform(-1, 1),
+            "z": random.uniform(-1, 1)
+        },
+        "rotation": random.uniform(0, 360),
+        "position": {
+            "x": random.uniform(-10, 10),
+            "y": random.uniform(-10, 10),
+            "z": random.uniform(-10, 10)
+        }
+    }
 
 @app.route('/')
 def index():
@@ -30,11 +42,15 @@ def handle_rockblock():
 
     try:
         decoded_message = bytes.fromhex(data).decode('utf-8')
+    except ValueError:
+        return "FAILED,14,Could not decode hex data", 400
+
+    try:
         message_parts = dict(part.split(":") for part in decoded_message.split(","))
         latitude = float(message_parts.get("lat", 0))
         longitude = float(message_parts.get("lon", 0))
         altitude = float(message_parts.get("alt", 0))
-        timestamp = time.time()
+        timestamp = time.time()  # Add timestamp
 
         flight_history.append({
             "timestamp": timestamp,
@@ -42,38 +58,29 @@ def handle_rockblock():
             "longitude": longitude,
             "altitude": altitude
         })
+
     except Exception as e:
+        print("Error parsing message:", e)
         return "FAILED,15,Error parsing message data", 400
 
     return "OK,0"
 
 @app.route('/live-data', methods=['GET'])
 def live_data():
+    # Generate simulated arrow vector data
+    telemetry_data = generate_simulated_vectors()
+
+    # Add latest flight data if available
     if flight_history:
-        return jsonify(flight_history[-1])
-    return jsonify({})
+        latest = flight_history[-1]
+        telemetry_data.update({
+            "latitude": latest["latitude"],
+            "longitude": latest["longitude"],
+            "altitude": latest["altitude"],
+            "timestamp": latest["timestamp"]
+        })
 
-@app.route('/animation-data', methods=['GET'])
-def animation_data():
-    return jsonify({
-        "rotation": random.uniform(0, 360),
-        "position": {"x": random.uniform(-10, 10), "y": random.uniform(-10, 10), "z": random.uniform(-10, 10)},
-        "force": {"x": random.uniform(0, 1), "y": random.uniform(0, 1), "z": random.uniform(0, 1)}
-    })
-
-@app.route('/download-history', methods=['GET'])
-def download_history():
-    csv_file = "flight_history.csv"
-    keys = ["timestamp", "latitude", "longitude", "altitude"]
-    with open(csv_file, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
-        writer.writeheader()
-        writer.writerows(flight_history)
-    return Response(
-        open(csv_file, "r"),
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename={csv_file}"}
-    )
+    return jsonify(telemetry_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
