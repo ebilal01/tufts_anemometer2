@@ -1,118 +1,94 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flight Data Visualization</title>
-    <link rel="stylesheet" href="/static/format.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
-    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
-</head>
-<body>
-    <h1>Flight Data Visualization</h1>
-    <div id="map" style="height: 500px; width: 100%;"></div>
-    <div id="graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
-    <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
+from flask import Flask, render_template, jsonify, request
+import time
+import random
 
-    <!-- Label for Latitude and Longitude -->
-    <div id="coordinates" style="margin-top: 10px; font-size: 16px;">
-        Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
-    </div>
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
-    <!-- CSV Download Button -->
-    <div id="download-section" style="margin-top: 20px;">
-        <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
-            Download History as CSV
-        </a>
-    </div>
+# In-memory store for demonstration purposes
+flight_history = []
 
-    <script>
-        // Initialize Leaflet map
-        const map = L.map('map').setView([0, 0], 2);
-        const marker = L.marker([0, 0]).addTo(map);
+# Simulated force vector data
+def generate_simulated_vectors():
+    return {
+        "force": {
+            "x": random.uniform(-1, 1),
+            "y": random.uniform(-1, 1),
+            "z": random.uniform(-1, 1)
+        },
+        "rotation": random.uniform(0, 360),
+        "position": {
+            "x": random.uniform(-10, 10),
+            "y": random.uniform(-10, 10),
+            "z": random.uniform(-10, 10)
+        }
+    }
 
-        const updateMap = async () => {
-            try {
-                const response = await fetch('/live-data');
-                const data = await response.json();
-                if (data.latitude && data.longitude) {
-                    marker.setLatLng([data.latitude, data.longitude]);
-                    map.setView([data.latitude, data.longitude], 8);
-                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
-                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
-                }
-            } catch (error) {
-                console.error('Error updating map:', error);
-            }
-        };
-        setInterval(updateMap, 1000);
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-        // Babylon.js for 3D rendering
-        const canvas = document.getElementById('renderCanvas');
-        const engine = new BABYLON.Engine(canvas, true);
-        let arrowMesh = null;
+@app.route('/rockblock', methods=['POST'])
+def handle_rockblock():
+    imei = request.args.get('imei')
+    username = request.args.get('username')
+    password = request.args.get('password')
 
-        const createScene = () => {
-            const scene = new BABYLON.Scene(engine);
+    if imei != "300434065264590" or username != "myUser" or password != "myPass":
+        return "FAILED,10,Invalid login credentials", 400
 
-            // Camera and light
-            const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
-            camera.attachControl(canvas, true);
-            const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
+    data = request.args.get('data')
+    if not data:
+        return "FAILED,16,No data provided", 400
 
-            // Load satellite model
-            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
-                console.log('Satellite model loaded');
-            });
+    try:
+        decoded_message = bytes.fromhex(data).decode('utf-8')
+    except ValueError:
+        return "FAILED,14,Could not decode hex data", 400
 
-            // Create a basic arrow for force vector
-            const arrow = BABYLON.MeshBuilder.CreateLines("arrow", {
-                points: [BABYLON.Vector3.Zero(), new BABYLON.Vector3(1, 0, 0)]
-            }, scene);
-            arrowMesh = arrow;
+    try:
+        message_parts = dict(part.split(":") for part in decoded_message.split(","))
+        latitude = float(message_parts.get("lat", 0))
+        longitude = float(message_parts.get("lon", 0))
+        altitude = float(message_parts.get("alt", 0))
+        timestamp = time.time()  # Add timestamp
 
-            // Fetch live telemetry data
-            const fetchTelemetryData = async () => {
-                try {
-                    const response = await fetch('/animation-data');
-                    const telemetry = await response.json();
-                    console.log('Telemetry:', telemetry);
-                    if (telemetry.force) {
-                        updateArrowVectors(telemetry.force, telemetry.rotation);
-                    }
-                } catch (error) {
-                    console.error('Error fetching telemetry data:', error);
-                }
-            };
+        flight_history.append({
+            "timestamp": timestamp,
+            "latitude": latitude,
+            "longitude": longitude,
+            "altitude": altitude
+        })
 
-            setInterval(fetchTelemetryData, 1000);
+    except Exception as e:
+        print("Error parsing message:", e)
+        return "FAILED,15,Error parsing message data", 400
 
-            return scene;
-        };
+    return "OK,0"
 
-        const updateArrowVectors = (force, rotation) => {
-            if (arrowMesh) {
-                // Update the vector arrow's direction and rotation based on telemetry data
-                arrowMesh.rotation.x = rotation * Math.PI / 180;  // Convert degrees to radians
-                arrowMesh.position.x = force.x;
-                arrowMesh.position.y = force.y;
-                arrowMesh.position.z = force.z;
-            }
-        };
+@app.route('/live-data', methods=['GET'])
+def live_data():
+    # Generate simulated arrow vector data
+    telemetry_data = generate_simulated_vectors()
 
-        const scene = createScene();
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
+    # Add latest flight data if available
+    if flight_history:
+        latest = flight_history[-1]
+        telemetry_data.update({
+            "latitude": latest["latitude"],
+            "longitude": latest["longitude"],
+            "altitude": latest["altitude"],
+            "timestamp": latest["timestamp"]
+        })
 
-        window.addEventListener('resize', () => {
-            engine.resize();
-        });
-    </script>
-</body>
-</html>
+    return jsonify(telemetry_data)
+
+@app.route('/animation-data', methods=['GET'])
+def animation_data():
+    # Return simulated telemetry data for animation
+    telemetry_data = generate_simulated_vectors()
+    return jsonify(telemetry_data)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+
 
