@@ -10,13 +10,13 @@
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
-    <script src="https://cdn.babylonjs.com/earcut.min.js"></script> <!-- Earcut for text -->
+    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
 </head>
 <body>
     <h1>Flight Data Visualization</h1>
     <div id="map" style="height: 500px; width: 100%;"></div>
     <div id="graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
-    <canvas id="renderCanvas" touch-action="none"></canvas>
+    <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
 
     <!-- Label for Latitude and Longitude -->
     <div id="coordinates" style="margin-top: 10px; font-size: 16px;">
@@ -31,91 +31,55 @@
     </div>
 
     <script>
-        const canvas = document.getElementById("renderCanvas");
+        // Initialize Leaflet map
+        const map = L.map('map').setView([0, 0], 2);
+        const marker = L.marker([0, 0]).addTo(map);
+
+        const updateMap = async () => {
+            try {
+                const response = await fetch('/live-data');
+                const data = await response.json();
+                if (data.latitude && data.longitude) {
+                    marker.setLatLng([data.latitude, data.longitude]);
+                    map.setView([data.latitude, data.longitude], 8);
+                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
+                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
+                }
+            } catch (error) {
+                console.error('Error updating map:', error);
+            }
+        };
+        setInterval(updateMap, 1000);
+
+        // Babylon.js for 3D rendering
+        const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true);
 
         const createScene = () => {
             const scene = new BABYLON.Scene(engine);
 
             // Camera and light
-            const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
+            const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
             camera.attachControl(canvas, true);
-            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+            const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
 
             // Load satellite model
-            let satellite;
-            BABYLON.SceneLoader.Append("./static/models/", "SATELLITE.gltf", scene, () => {
-                satellite = scene.meshes[0];
-                console.log("Satellite loaded");
+            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
+                console.log('Satellite model loaded');
             });
 
-            // Create arrows for force vectors
-            const createArrow = (direction, color) => {
-                const arrow = BABYLON.MeshBuilder.CreateCylinder("arrow", {
-                    height: 1.5,
-                    diameterTop: 0,
-                    diameterBottom: 0.2,
-                }, scene);
-
-                const arrowMaterial = new BABYLON.StandardMaterial("arrowMaterial", scene);
-                arrowMaterial.diffuseColor = color;
-                arrow.material = arrowMaterial;
-
-                const rotationQuaternion = BABYLON.Quaternion.FromEulerVector(direction);
-                arrow.rotationQuaternion = rotationQuaternion;
-
-                return arrow;
-            };
-
-            // Define force arrows
-            const xArrow = createArrow(new BABYLON.Vector3(Math.PI / 2, 0, 0), new BABYLON.Color3(1, 0, 0)); // Red
-            const yArrow = createArrow(new BABYLON.Vector3(0, Math.PI / 2, 0), new BABYLON.Color3(0, 1, 0)); // Green
-            const zArrow = createArrow(new BABYLON.Vector3(0, 0, Math.PI / 2), new BABYLON.Color3(0, 0, 1)); // Blue
-
-            // Position arrows slightly away from the satellite
-            const offset = 2;
-            xArrow.position = new BABYLON.Vector3(offset, 0, 0);
-            yArrow.position = new BABYLON.Vector3(0, offset, 0);
-            zArrow.position = new BABYLON.Vector3(0, 0, offset);
-
-            // Fetch live telemetry data from the /live-data route
+            // Fetch live telemetry data
             const fetchTelemetryData = async () => {
                 try {
-                    const response = await fetch("/animation-data");
+                    const response = await fetch('/animation-data');
                     const telemetry = await response.json();
-
-                    // Update satellite rotation and position
-                    if (satellite) {
-                        satellite.rotationQuaternion = BABYLON.Quaternion.FromEulerAngles(
-                            0,
-                            BABYLON.Tools.ToRadians(telemetry.rotation),
-                            0
-                        );
-                        satellite.position = new BABYLON.Vector3(telemetry.position.x, telemetry.position.y, telemetry.position.z);
-                    }
-
-                    // Update arrows based on force vectors and display magnitudes
-                    if (xArrow) {
-                        xArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(Math.PI / 2, telemetry.rotation, 0));
-                    }
-                    if (yArrow) {
-                        yArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, Math.PI / 2, telemetry.rotation));
-                    }
-                    if (zArrow) {
-                        zArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, 0, Math.PI / 2));
-                    }
-
-                    // Optional: Display force magnitudes
-                    const forceText = `Force Magnitudes: X: ${telemetry.force.x.toFixed(2)}, Y: ${telemetry.force.y.toFixed(2)}, Z: ${telemetry.force.z.toFixed(2)}`;
-                    console.log(forceText); // This can be displayed in the UI if needed
+                    console.log('Telemetry:', telemetry);
                 } catch (error) {
-                    console.error("Error fetching telemetry data:", error);
+                    console.error('Error fetching telemetry data:', error);
                 }
             };
 
-            // Fetch data initially and periodically
-            fetchTelemetryData();
-            setInterval(fetchTelemetryData, 1000); // Update every second
+            setInterval(fetchTelemetryData, 1000);
 
             return scene;
         };
@@ -125,93 +89,9 @@
             scene.render();
         });
 
-        window.addEventListener("resize", () => {
+        window.addEventListener('resize', () => {
             engine.resize();
         });
-    </script>
-
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <script>
-        const baseURL = 'https://tufts-anemometer2.onrender.com';  // Replace with your actual Render app URL
-
-        // Initialize the map
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19
-        }).addTo(map);
-
-        // Initialize the flight path and marker
-        const flightPath = L.polyline([], { color: 'red' }).addTo(map);
-        const marker = L.marker([0, 0]).addTo(map);
-
-        // Update the map with new coordinates
-        const updateMap = (latitude, longitude) => {
-            const latLng = [latitude, longitude];
-            flightPath.addLatLng(latLng);
-            marker.setLatLng(latLng);
-            map.fitBounds(flightPath.getBounds());
-
-            // Update the label with the new coordinates
-            document.getElementById('lat').textContent = latitude.toFixed(6);
-            document.getElementById('lon').textContent = longitude.toFixed(6);
-        };
-
-        // Update the graph with new altitude data
-        const updateGraph = (timestamps, altitudes) => {
-            const data = [{
-                x: timestamps,
-                y: altitudes,
-                type: 'scatter'
-            }];
-            Plotly.newPlot('graph', data);
-        };
-
-        // Fetch live data from the /live-data endpoint
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseURL}/live-data`);
-                if (!response.ok) throw new Error('Failed to fetch live data');
-                const data = await response.json();
-
-                if (data.latitude && data.longitude) {
-                    updateMap(data.latitude, data.longitude);
-                }
-
-                if (data.timestamps && data.altitudes) {
-                    updateGraph(data.timestamps, data.altitudes);
-                }
-            } catch (error) {
-                console.error('Error fetching live data:', error);
-            }
-        };
-
-        // Fetch historical flight data from the /history endpoint
-        const fetchHistory = async () => {
-            try {
-                const response = await fetch(`${baseURL}/history`);
-                if (!response.ok) throw new Error('Failed to fetch history');
-                const history = await response.json();
-
-                // Iterate through the historical data and update the map and graph
-                history.forEach((data) => {
-                    if (data.latitude && data.longitude) {
-                        updateMap(data.latitude, data.longitude);
-                    }
-
-                    if (data.timestamps && data.altitudes) {
-                        updateGraph(data.timestamps, data.altitudes);
-                    }
-                });
-            } catch (error) {
-                console.error('Error fetching history:', error);
-            }
-        };
-
-        // On page load, fetch the history and then fetch live data every 5 seconds
-        window.onload = async () => {
-            await fetchHistory();  // Fetch historical data on page load
-            setInterval(fetchData, 5000);  // Fetch live data every 5 seconds
-        };
     </script>
 </body>
 </html>
