@@ -82,6 +82,12 @@ def live_data():
 
     return jsonify(telemetry_data)
 
+@app.route('/animation-data', methods=['GET'])
+def animation_data():
+    # Return simulated telemetry data for the 3D model
+    return jsonify(generate_simulated_vectors())
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
