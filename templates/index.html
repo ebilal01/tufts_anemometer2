@@ -54,7 +54,6 @@
         // Babylon.js for 3D rendering
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true);
-        let arrowMesh = null;
 
         const createScene = () => {
             const scene = new BABYLON.Scene(engine);
@@ -69,11 +68,40 @@
                 console.log('Satellite model loaded');
             });
 
-            // Create a basic arrow for force vector
+            // Create the arrow with a small offset from the model
+            const arrowLength = 2; // Length of the arrow
+            const arrowHeadLength = 0.5; // Length of the arrowhead
+            const arrowHeadWidth = 0.2; // Width of the arrowhead
+            const arrowColor = new BABYLON.Color3(1, 0, 0); // Red color for the arrow
+
+            // Create an arrow from the model (positioned away from the model)
             const arrow = BABYLON.MeshBuilder.CreateLines("arrow", {
-                points: [BABYLON.Vector3.Zero(), new BABYLON.Vector3(1, 0, 0)]
+                points: [
+                    new BABYLON.Vector3(0, 0, 0), // Arrow start point (origin)
+                    new BABYLON.Vector3(arrowLength, 0, 0) // Arrow end point
+                ]
             }, scene);
-            arrowMesh = arrow;
+
+            // Add arrowhead
+            const arrowHead = BABYLON.MeshBuilder.CreateCylinder("arrowHead", {
+                diameterTop: 0,
+                diameterBottom: arrowHeadWidth,
+                height: arrowHeadLength,
+                tessellation: 4
+            }, scene);
+
+            // Position the arrowhead at the end of the arrow
+            arrowHead.position = new BABYLON.Vector3(arrowLength + arrowHeadLength / 2, 0, 0);
+
+            // Color the arrow and arrowhead red
+            arrow.color = arrowColor;
+            arrowHead.material = new BABYLON.StandardMaterial("arrowMat", scene);
+            arrowHead.material.diffuseColor = arrowColor;
+
+            // Add a small offset to avoid the arrow colliding with the model
+            const offset = 0.5;
+            arrow.position = new BABYLON.Vector3(offset, 0, 0); // Offset the arrow from the model by 0.5 units
+            arrowHead.position.addInPlace(new BABYLON.Vector3(offset, 0, 0));
 
             // Fetch live telemetry data
             const fetchTelemetryData = async () => {
@@ -81,9 +109,10 @@
                     const response = await fetch('/animation-data');
                     const telemetry = await response.json();
                     console.log('Telemetry:', telemetry);
-                    if (telemetry.force) {
-                        updateArrowVectors(telemetry.force, telemetry.rotation);
-                    }
+
+                    // Update arrow direction based on force vectors
+                    const force = telemetry.force;
+                    arrow.rotation = BABYLON.Vector3.RotationFromAxis(force.x, force.y, force.z);
                 } catch (error) {
                     console.error('Error fetching telemetry data:', error);
                 }
@@ -92,16 +121,6 @@
             setInterval(fetchTelemetryData, 1000);
 
             return scene;
-        };
-
-        const updateArrowVectors = (force, rotation) => {
-            if (arrowMesh) {
-                // Update the vector arrow's direction and rotation based on telemetry data
-                arrowMesh.rotation.x = rotation * Math.PI / 180;  // Convert degrees to radians
-                arrowMesh.position.x = force.x;
-                arrowMesh.position.y = force.y;
-                arrowMesh.position.z = force.z;
-            }
         };
 
         const scene = createScene();
