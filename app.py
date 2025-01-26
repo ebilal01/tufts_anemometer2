@@ -7,10 +7,13 @@ from flask_socketio import SocketIO
 import eventlet
 import csv
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
-# In-memory store for demonstration purposes
 flight_history = []
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/rockblock', methods=['POST'])
 def handle_rockblock():
@@ -27,17 +30,11 @@ def handle_rockblock():
 
     try:
         decoded_message = bytes.fromhex(data).decode('utf-8')
-    except ValueError:
-        return "FAILED,14,Could not decode hex data", 400
-
-    print(f"IMEI: {imei}, Decoded Message: {decoded_message}")
-
-    try:
         message_parts = dict(part.split(":") for part in decoded_message.split(","))
         latitude = float(message_parts.get("lat", 0))
         longitude = float(message_parts.get("lon", 0))
         altitude = float(message_parts.get("alt", 0))
-        timestamp = time.time()  # Add timestamp
+        timestamp = time.time()
 
         flight_history.append({
             "timestamp": timestamp,
@@ -45,10 +42,7 @@ def handle_rockblock():
             "longitude": longitude,
             "altitude": altitude
         })
-
-        print(f"Latitude: {latitude}, Longitude: {longitude}, Altitude: {altitude}")
     except Exception as e:
-        print("Error parsing message:", e)
         return "FAILED,15,Error parsing message data", 400
 
     return "OK,0"
@@ -56,12 +50,30 @@ def handle_rockblock():
 @app.route('/live-data', methods=['GET'])
 def live_data():
     if flight_history:
-        return jsonify(flight_history[-1])  # Latest data
+        return jsonify(flight_history[-1])
     return jsonify({})
 
-@app.route('/history', methods=['GET'])
-def load_flight_history():
-    return jsonify(flight_history)
+@app.route('/animation-data', methods=['GET'])
+def animation_data():
+    return jsonify({
+        "rotation": random.uniform(0, 360),
+        "position": {"x": random.uniform(-10, 10), "y": random.uniform(-10, 10), "z": random.uniform(-10, 10)},
+        "force": {"x": random.uniform(0, 1), "y": random.uniform(0, 1), "z": random.uniform(0, 1)}
+    })
+
+@app.route('/download-history', methods=['GET'])
+def download_history():
+    csv_file = "flight_history.csv"
+    keys = ["timestamp", "latitude", "longitude", "altitude"]
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(flight_history)
+    return Response(
+        open(csv_file, "r"),
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={csv_file}"}
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
