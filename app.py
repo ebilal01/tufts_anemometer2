@@ -7,14 +7,10 @@ from flask_socketio import SocketIO
 import eventlet
 import csv
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
 
 # In-memory store for demonstration purposes
 flight_history = []
-
-@app.route('/')
-def index():
-    return render_template('index.html')  # This will serve the HTML file located in the "templates" folder
 
 @app.route('/rockblock', methods=['POST'])
 def handle_rockblock():
@@ -69,5 +65,4 @@ def load_flight_history():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
 
