@@ -54,6 +54,7 @@
         // Babylon.js for 3D rendering
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true);
+        let arrowMesh = null;
 
         const createScene = () => {
             const scene = new BABYLON.Scene(engine);
@@ -68,12 +69,21 @@
                 console.log('Satellite model loaded');
             });
 
+            // Create a basic arrow for force vector
+            const arrow = BABYLON.MeshBuilder.CreateLines("arrow", {
+                points: [BABYLON.Vector3.Zero(), new BABYLON.Vector3(1, 0, 0)]
+            }, scene);
+            arrowMesh = arrow;
+
             // Fetch live telemetry data
             const fetchTelemetryData = async () => {
                 try {
                     const response = await fetch('/animation-data');
                     const telemetry = await response.json();
                     console.log('Telemetry:', telemetry);
+                    if (telemetry.force) {
+                        updateArrowVectors(telemetry.force, telemetry.rotation);
+                    }
                 } catch (error) {
                     console.error('Error fetching telemetry data:', error);
                 }
@@ -82,6 +92,16 @@
             setInterval(fetchTelemetryData, 1000);
 
             return scene;
+        };
+
+        const updateArrowVectors = (force, rotation) => {
+            if (arrowMesh) {
+                // Update the vector arrow's direction and rotation based on telemetry data
+                arrowMesh.rotation.x = rotation * Math.PI / 180;  // Convert degrees to radians
+                arrowMesh.position.x = force.x;
+                arrowMesh.position.y = force.y;
+                arrowMesh.position.z = force.z;
+            }
         };
 
         const scene = createScene();
@@ -95,3 +115,4 @@
     </script>
 </body>
 </html>
+
