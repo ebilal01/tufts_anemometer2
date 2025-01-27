@@ -32,8 +32,8 @@ def handle_rockblock():
     imei = request.args.get('imei')
     username = request.args.get('username')
     password = request.args.get('password')
-
-    if imei != "300434065264590" or username != "myUser" or password != "myPass":
+#300434065264590
+    if imei != "301434061119410":
         return "FAILED,10,Invalid login credentials", 400
 
     data = request.args.get('data')
