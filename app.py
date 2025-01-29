@@ -9,10 +9,15 @@ import csv
 import struct
 import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # In-memory store for demonstration purposes
 message_history = []
+
+@app.route('/')
+def index():
+    return render_template('index.html')  # Ensure this matches the frontend file
 
 @app.route('/rockblock', methods=['POST'])
 def handle_rockblock():
