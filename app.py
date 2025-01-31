@@ -102,6 +102,27 @@ def get_live_data():
 def load_flight_history():
     return jsonify(message_history)
 
+@app.route('/animation-data', methods=['GET'])
+def get_animation_data():
+    if not message_history:
+        return jsonify({"error": "No data available"}), 404
+
+    latest_data = message_history[-1]
+    
+    # Extract relevant fields for animation
+    animation_data = {
+        "force": {
+            "x": latest_data.get("vpk_1_mps", 0),  # Example: Using peak velocity as force
+            "y": latest_data.get("vpk_2_mps", 0),
+            "z": latest_data.get("vpk_3_mps", 0),
+        }
+    }
+    
+    return jsonify(animation_data)
+@app.route('/message-history', methods=['GET'])
+def message_history_endpoint():
+    return jsonify(message_history) if message_history else jsonify([])
+
 @app.route('/download-history', methods=['GET'])
 def download_history():
     if not message_history:
