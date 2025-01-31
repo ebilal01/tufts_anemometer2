@@ -117,6 +117,33 @@
                 arrowHead.lookAt(direction.scale(arrowLength)); // Point the arrowhead in the direction of the vector
             };
 
+             // Fetch and display message history
+        async function fetchMessageHistory() {
+            try {
+                const response = await fetch(`${baseURL}/message-history`); // Adjust this if needed
+                if (!response.ok) throw new Error('Failed to fetch message history');
+                const historyData = await response.json();
+                
+                const historyList = document.getElementById('message-history');
+                historyList.innerHTML = ''; // Clear previous history
+
+                historyData.forEach((msg, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `(${msg.received_time}) ${JSON.stringify(msg)}`;
+                    historyList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Error fetching message history:', error);
+            }
+        }
+
+        // Fetch data on page load and refresh periodically
+        window.onload = () => {
+            fetchLatestMessage(); // Load latest message
+            fetchMessageHistory(); // Load history
+            setInterval(fetchLatestMessage, 5000); // Refresh latest message every 5 seconds
+        };
+
             // Fetch live telemetry data
             const fetchTelemetryData = async () => {
                 try {
