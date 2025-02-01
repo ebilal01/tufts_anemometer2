@@ -53,7 +53,7 @@
         setInterval(updateMap, 1000);
 
         // Update the graph with new altitude data
-        const updateGraph = (timestamps, altitudes) => {
+        const updateGraph = (data.sent_time, data.altitude) => {
             const data = [{
                 x: timestamps,
                 y: altitudes,
