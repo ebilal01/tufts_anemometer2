@@ -123,9 +123,10 @@ setInterval(updateLiveData, 1000);
                 const longitudeElem = document.getElementById("longitude");
                 const temperatureElem = document.getElementById("temperature");
 
-                if (latitudeElem) latitudeElem.textContent = Latitude: ${data.latitude};
-                if (longitudeElem) longitudeElem.textContent = Longitude: ${data.longitude};
-                if (temperatureElem) temperatureElem.textContent = Temperature: ${data.temperature_pht_c}°C;
+                if (latitudeElem) latitudeElem.textContent = `Latitude: ${data.latitude}`;
+                if (longitudeElem) longitudeElem.textContent = `Longitude: ${data.longitude}`;
+                if (temperatureElem) temperatureElem.textContent = `Temperature: ${data.temperature_pht_c}°C`;
+
             } catch (error) {
                 console.error("Error fetching live data:", error);
             }
