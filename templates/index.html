@@ -36,21 +36,39 @@
         const map = L.map('map').setView([0, 0], 2);
         const marker = L.marker([0, 0]).addTo(map);
 
-        const updateMap = async () => {
-            try {
-                const response = await fetch('/live-data');
-                const data = await response.json();
-                if (data.latitude && data.longitude) {
-                    marker.setLatLng([data.latitude, data.longitude]);
-                    map.setView([data.latitude, data.longitude], 8);
-                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
-                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
-                }
-            } catch (error) {
-                console.error('Error updating map:', error);
+        const baseURL = 'https://tufts-anemometer2.onrender.com'; // Ensure this is the correct URL
+
+const updateMap = async () => {
+    try {
+        const response = await fetch(`${baseURL}/live-data`); // Ensure fetch reaches backend
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+        const data = await response.json();
+        console.log("Live data received:", data); // Debugging log
+
+        if (data.latitude !== undefined && data.longitude !== undefined) {
+            const lat = parseFloat(data.latitude);
+            const lon = parseFloat(data.longitude);
+
+            if (!isNaN(lat) && !isNaN(lon)) {
+                marker.setLatLng([lat, lon]);
+                map.setView([lat, lon], 8);
+
+                document.getElementById('lat').textContent = lat.toFixed(6);
+                document.getElementById('lon').textContent = lon.toFixed(6);
+            } else {
+                console.error("Invalid latitude or longitude values:", data.latitude, data.longitude);
             }
-        };
-        setInterval(updateMap, 1000);
+        } else {
+            console.warn("No valid coordinates in received data:", data);
+        }
+    } catch (error) {
+        console.error("Error updating map:", error);
+    }
+};
+
+// Refresh the map every second
+setInterval(updateMap, 1000);
 
         // Babylon.js for 3D rendering
         const canvas = document.getElementById('renderCanvas');
