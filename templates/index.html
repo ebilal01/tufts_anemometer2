@@ -154,14 +154,103 @@
         };
 
         // Babylon.js for 3D rendering
-        const canvas = document.getElementById("renderCanvas");
+         const canvas = document.getElementById("renderCanvas");
         const engine = new BABYLON.Engine(canvas, true);
 
-        const scene = new BABYLON.Scene(engine);
-        const camera = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 2, 10, BABYLON.Vector3.Zero(), scene);
-        camera.attachControl(canvas, true);
-        const light = new BABYLON.HemisphericLight("light1", BABYLON.Vector3.Up(), scene);
-        engine.runRenderLoop(function () { scene.render(); });
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+
+            // Camera and light
+            const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+            // Load satellite model
+            let satellite;
+            BABYLON.SceneLoader.Append("./static/models/", "SATELLITE.gltf", scene, () => {
+                satellite = scene.meshes[0];
+                console.log("Satellite loaded");
+            });
+
+            // Create arrows for force vectors
+            const createArrow = (direction, color) => {
+                const arrow = BABYLON.MeshBuilder.CreateCylinder("arrow", {
+                    height: 1.5,
+                    diameterTop: 0,
+                    diameterBottom: 0.2,
+                }, scene);
+
+                const arrowMaterial = new BABYLON.StandardMaterial("arrowMaterial", scene);
+                arrowMaterial.diffuseColor = color;
+                arrow.material = arrowMaterial;
+
+                const rotationQuaternion = BABYLON.Quaternion.FromEulerVector(direction);
+                arrow.rotationQuaternion = rotationQuaternion;
+
+                return arrow;
+            };
+
+            // Define force arrows
+            const xArrow = createArrow(new BABYLON.Vector3(Math.PI / 2, 0, 0), new BABYLON.Color3(1, 0, 0)); // Red
+            const yArrow = createArrow(new BABYLON.Vector3(0, Math.PI / 2, 0), new BABYLON.Color3(0, 1, 0)); // Green
+            const zArrow = createArrow(new BABYLON.Vector3(0, 0, Math.PI / 2), new BABYLON.Color3(0, 0, 1)); // Blue
+
+            // Position arrows slightly away from the satellite
+            const offset = 2;
+            xArrow.position = new BABYLON.Vector3(offset, 0, 0);
+            yArrow.position = new BABYLON.Vector3(0, offset, 0);
+            zArrow.position = new BABYLON.Vector3(0, 0, offset);
+
+            // Fetch live telemetry data from the /live-data route
+            const fetchTelemetryData = async () => {
+                try {
+                    const response = await fetch("/animation-data");
+                    const telemetry = await response.json();
+
+                    // Update satellite rotation and position
+                    if (satellite) {
+                        satellite.rotationQuaternion = BABYLON.Quaternion.FromEulerAngles(
+                            0,
+                            BABYLON.Tools.ToRadians(telemetry.rotation),
+                            0
+                        );
+                        satellite.position = new BABYLON.Vector3(telemetry.position.x, telemetry.position.y, telemetry.position.z);
+                    }
+
+                    // Update arrows based on force vectors and display magnitudes
+                    if (xArrow) {
+                        xArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(Math.PI / 2, telemetry.rotation, 0));
+                    }
+                    if (yArrow) {
+                        yArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, Math.PI / 2, telemetry.rotation));
+                    }
+                    if (zArrow) {
+                        zArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, 0, Math.PI / 2));
+                    }
+
+                    // Optional: Display force magnitudes
+                    const forceText = `Force Magnitudes: X: ${telemetry.force.x.toFixed(2)}, Y: ${telemetry.force.y.toFixed(2)}, Z: ${telemetry.force.z.toFixed(2)}`;
+                    console.log(forceText); // This can be displayed in the UI if needed
+                } catch (error) {
+                    console.error("Error fetching telemetry data:", error);
+                }
+            };
+
+            // Fetch data initially and periodically
+            fetchTelemetryData();
+            setInterval(fetchTelemetryData, 1000); // Update every second
+
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
     </script>
 </body>
 </html>
