@@ -136,18 +136,13 @@ def get_live_data():
 
 @app.route('/flight-data', methods=['GET'])
 def live_data():
-    # Simulate flight data with random values for testing
+    # Ensure message_data exists or is simulated correctly
     data = {
-        "latitude":  message_data["latitude"]
-        "longitude": message_data["longitude"]
-        "timestamps": message_data["sent_time"]
+        "latitude": message_data["latitude"],
+        "longitude": message_data["longitude"],
+        "timestamps": message_data["sent_time"],
         "altitudes": message_data["altitude"]
     }
-
-    # Save flight data to file
-    save_flight_data(data)
-
-    # Return the simulated live data
     return jsonify(data)
 
 
