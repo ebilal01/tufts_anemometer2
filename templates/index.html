@@ -62,14 +62,15 @@
 
         // Update the graph with new altitude data
         const updateGraph = (data) => {
-    const { sent_time, altitude } = data;  // Extract values correctly
-    const graphData = [{
-        x: timestamps,
-        y: altitudes,
-        type: 'scatter'
-    }];
-    Plotly.newPlot('graph', graphData);
-};
+    const timestamps = [data.sent_time];  // Ensure timestamps are defined
+const altitudes = [data.altitude];    // Ensure altitudes are defined
+const graphData = [{
+    x: timestamps,
+    y: altitudes,
+    type: 'scatter'
+}];
+Plotly.newPlot('graph', graphData);
+
          // Fetch and display the latest message
         async function fetchLatestMessage() {
             try {
