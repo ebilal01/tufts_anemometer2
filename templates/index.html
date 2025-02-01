@@ -70,16 +70,29 @@
             document.getElementById('lat').textContent = latitude.toFixed(6);
             document.getElementById('lon').textContent = longitude.toFixed(6);
         };
+        // Fetch and update data every second
+        setInterval(updateMap, 1000);
 
-        // Update the graph with new altitude data
-        const updateGraph = (timestamps, altitudes) => {
-            const data = [{
+        // Improved Graph Update Function
+        const updateGraph = (data) => {
+            if (!data || !data.sent_time || !data.altitude) return;
+
+            const timestamps = [data.sent_time];
+            const altitudes = [data.altitude];
+
+            const graphData = [{
                 x: timestamps,
                 y: altitudes,
-                type: 'scatter'
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: 'blue' }
             }];
-            Plotly.newPlot('graph', data);
+
+            Plotly.react('graph', graphData);
         };
+
+        // Fetch and update data every second
+        setInterval(updateGraph, 1000);
 
 
         // Fetch the live data from the /live-data endpoint
@@ -126,6 +139,8 @@
             }
         };
 
+    
+
         // On page load, fetch the history and then fetch live data every 5 seconds
         window.onload = async () => {
             await fetchHistory();  // Fetch historical data on page load
@@ -162,24 +177,6 @@
             } catch (error) {
                 console.error("Error updating live data:", error);
             }
-        };
-
-        // Improved Graph Update Function
-        const updateGraph2 = (data) => {
-            if (!data || !data.sent_time || !data.altitude) return;
-
-            const timestamps = [data.sent_time];
-            const altitudes = [data.altitude];
-
-            const graphData = [{
-                x: timestamps,
-                y: altitudes,
-                type: 'scatter',
-                mode: 'lines+markers',
-                line: { color: 'blue' }
-            }];
-
-            Plotly.react('graph', graphData);
         };
 
         // Fetch and update data every second
