@@ -52,6 +52,17 @@
         };
         setInterval(updateMap, 1000);
 
+        // Update the graph with new altitude data
+        const updateGraph = (timestamps, altitudes) => {
+            const data = [{
+                x: timestamps,
+                y: altitudes,
+                type: 'scatter'
+            }];
+            Plotly.newPlot('graph', data);
+        };
+        setInterval(updateGraph, 1000);
+
          // Fetch and display the latest message
         async function fetchLatestMessage() {
             try {
