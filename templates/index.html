@@ -4,140 +4,127 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flight Data Visualization</title>
-    <link rel="stylesheet" href="/static/format.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
+
+    <!-- Leaflet for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Babylon.js for 3D Model -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <!-- Chart.js for Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Socket.IO for Real-time Updates -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
-    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- For altitude graph -->
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='format.css') }}">
 </head>
 <body>
     <h1>Flight Data Visualization</h1>
-    <div id="map" style="height: 500px; width: 100%;"></div>
-    <canvas id="altitudeGraph" style="height: 300px; width: 100%; margin-top: 20px;"></canvas>
-    <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
 
-    <div id="coordinates" style="margin-top: 10px; font-size: 16px;">
-        Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
-    </div>
+    <div id="dashboard">
+        <div id="map-container">
+            <h2>Live Map</h2>
+            <div id="map"></div>
+            <p>Latitude: <span id="lat">N/A</span></p>
+            <p>Longitude: <span id="lon">N/A</span></p>
+        </div>
 
-    <div id="download-section" style="margin-top: 20px;">
-        <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
-            Download History as CSV
-        </a>
+        <div id="altitude-container">
+            <h2>Altitude Graph</h2>
+            <canvas id="altitudeChart"></canvas>
+        </div>
+
+        <div id="model-container">
+            <h2>3D Model</h2>
+            <canvas id="renderCanvas"></canvas>
+        </div>
     </div>
 
     <script>
-        const baseURL = 'https://tufts-anemometer2.onrender.com';
+        // Initialize Map
+        const map = L.map('map').setView([42.4072, -71.3824], 8); // Default to Massachusetts
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+        }).addTo(map);
+        const marker = L.marker([42.4072, -71.3824]).addTo(map);
 
-        // Initialize Leaflet map
-        const map = L.map('map').setView([0, 0], 2);
-        const marker = L.marker([0, 0]).addTo(map);
-
-        const updateMap = async () => {
-            try {
-                const response = await fetch(`${baseURL}/live-data`);
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-                const data = await response.json();
-                console.log("Live data received:", data);
-
-                if (data.latitude !== undefined && data.longitude !== undefined) {
-                    const lat = parseFloat(data.latitude);
-                    const lon = parseFloat(data.longitude);
-
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        marker.setLatLng([lat, lon]);
-                        map.setView([lat, lon], 8);
-                        document.getElementById('lat').textContent = lat.toFixed(6);
-                        document.getElementById('lon').textContent = lon.toFixed(6);
-                    }
-                }
-            } catch (error) {
-                console.error("Error updating map:", error);
-            }
-        };
-
-        setInterval(updateMap, 1000);
-
-        // Babylon.js 3D model setup
-        const canvas = document.getElementById('renderCanvas');
-        const engine = new BABYLON.Engine(canvas, true);
-
-        const createScene = () => {
-            const scene = new BABYLON.Scene(engine);
-            const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
-            camera.attachControl(canvas, true);
-            new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
-
-            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
-                console.log('Satellite model loaded');
-            });
-
-            return scene;
-        };
-
-        const scene = createScene();
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
-
-        window.addEventListener('resize', () => {
-            engine.resize();
-        });
-
-        // Altitude graph setup
-        const ctx = document.getElementById('altitudeGraph').getContext('2d');
+        // Initialize Altitude Chart
+        const ctx = document.getElementById('altitudeChart').getContext('2d');
         const altitudeChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
                 datasets: [{
                     label: 'Altitude (m)',
-                    borderColor: 'rgb(75, 192, 192)',
                     data: [],
+                    borderColor: 'blue',
                     fill: false
                 }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Time' } },
+                    y: { title: { display: true, text: 'Altitude (m)' } }
+                }
             }
         });
 
-        const updateAltitudeGraph = (altitude) => {
-            if (altitude !== undefined) {
-                const now = new Date().toLocaleTimeString();
-                altitudeChart.data.labels.push(now);
-                altitudeChart.data.datasets[0].data.push(altitude);
-
-                if (altitudeChart.data.labels.length > 50) {
-                    altitudeChart.data.labels.shift();
-                    altitudeChart.data.datasets[0].data.shift();
-                }
-
-                altitudeChart.update();
+        // Update Altitude Graph
+        function updateAltitudeGraph(altitude) {
+            const time = new Date().toLocaleTimeString();
+            altitudeChart.data.labels.push(time);
+            altitudeChart.data.datasets[0].data.push(altitude);
+            if (altitudeChart.data.labels.length > 20) {
+                altitudeChart.data.labels.shift();
+                altitudeChart.data.datasets[0].data.shift();
             }
-        };
+            altitudeChart.update();
+        }
 
-        const fetchLatestMessage = async () => {
-            try {
-                const response = await fetch(`${baseURL}/live-data`);
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        // Babylon.js 3D Model (Placeholder)
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 5, BABYLON.Vector3.Zero(), scene);
+        camera.attachControl(canvas, true);
+        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+        const box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
+        engine.runRenderLoop(() => scene.render());
+        window.addEventListener("resize", () => engine.resize());
 
-                const data = await response.json();
-                console.log("Latest message:", data);
+        // Socket.IO for Real-time Updates
+        const socket = io.connect('https://tufts-anemometer2.onrender.com');
 
-                if (data.altitude !== undefined) {
-                    updateAltitudeGraph(parseFloat(data.altitude));
+        socket.on('new_data', (data) => {
+            console.log("Real-time update received:", data);
+
+            // Update Map
+            if (data.latitude !== undefined && data.longitude !== undefined) {
+                const lat = parseFloat(data.latitude);
+                const lon = parseFloat(data.longitude);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    marker.setLatLng([lat, lon]);
+                    map.setView([lat, lon], 8);
+                    document.getElementById('lat').textContent = lat.toFixed(6);
+                    document.getElementById('lon').textContent = lon.toFixed(6);
                 }
-            } catch (error) {
-                console.error("Error fetching latest message:", error);
             }
-        };
 
-        setInterval(fetchLatestMessage, 1000);
+            // Update Altitude Graph
+            if (data.altitude !== undefined) {
+                updateAltitudeGraph(parseFloat(data.altitude));
+            }
+
+            // Update 3D Model (Future: Rotate based on telemetry)
+        });
     </script>
 </body>
 </html>
+
 
 
 
