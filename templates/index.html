@@ -113,7 +113,7 @@ setInterval(updateLiveData, 1000);
          // Fetch and display the latest message
         async function fetchLatestMessage() {
             try {
-                const response = await fetch(${BASE_URL}/live-data);
+                const response = await fetch(`${BASE_URL}/message-history`);
                 if (!response.ok) throw new Error("Failed to fetch latest message");
                 const data = await response.json();
                 console.log("Telemetry:", data);
