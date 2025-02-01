@@ -23,14 +23,26 @@
         Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
     </div>
 
+    <!-- Latest Message -->
+    <div>
+        <h2>Latest Message:</h2>
+        <ul id="message">No messages yet.</ul>
+    </div>
+
+    <!-- Historical Messages -->
+    <div>
+        <h2>Message History:</h2>
+        <ul id="message-history"></ul>  <!-- This was missing -->
+            <!-- Messages will be dynamically added here -->
+        </ul>
+    </div>
+
     <!-- CSV Download Button -->
     <div id="download-section" style="margin-top: 20px;">
         <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
             Download History as CSV
         </a>
     </div>
-    <h2>Message History:</h2>
-    <ul id="message-history"></ul>  <!-- Message history -->
 
     <script>
         const BASE_URL = "https://tufts-anemometer2.onrender.com"; // Update this with the actual backend URL
