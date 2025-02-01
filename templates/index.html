@@ -50,6 +50,94 @@
     <script>
         const BASE_URL = "https://tufts-anemometer2.onrender.com"; // Update this with the actual backend URL
 
+
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        // Initialize the flight path and marker
+        const flightPath = L.polyline([], { color: 'red' }).addTo(map);
+        const marker = L.marker([0, 0]).addTo(map);
+
+        // Update the map with new coordinates
+        const updateMap = (latitude, longitude) => {
+            const latLng = [latitude, longitude];
+            flightPath.addLatLng(latLng);
+            marker.setLatLng(latLng);
+            map.fitBounds(flightPath.getBounds());
+
+            // Update the label with the new coordinates
+            document.getElementById('lat').textContent = latitude.toFixed(6);
+            document.getElementById('lon').textContent = longitude.toFixed(6);
+        };
+
+        // Update the graph with new altitude data
+        const updateGraph = (timestamps, altitudes) => {
+            const data = [{
+                x: timestamps,
+                y: altitudes,
+                type: 'scatter'
+            }];
+            Plotly.newPlot('graph', data);
+        };
+
+
+        // Fetch the live data from the /live-data endpoint
+        const fetchData = async () => {
+            try {
+                const response = await fetch(`${baseURL}/live-data`);
+                if (!response.ok) throw new Error('Failed to fetch live data');
+                const data = await response.json();
+
+                if (data.latitude && data.longitude) {
+                    updateMap(data.latitude, data.longitude);
+                }
+
+                if (data.timestamps && data.altitudes) {
+                    updateGraph(data.timestamps, data.altitudes);
+                }
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        };
+
+        // Fetch historical flight data from the /history endpoint
+        const fetchHistory = async () => {
+            try {
+                const response = await fetch(`${baseURL}/history`);
+                if (!response.ok) throw new Error('Failed to fetch history');
+                const history = await response.json();
+
+                // Iterate through the historical data and update the map and graph
+                history.forEach((data) => {
+                    if (data.latitude && data.longitude) {
+                        updateMap(data.latitude, data.longitude);
+                    }
+
+                    if (data.timestamps && data.altitudes) {
+                        updateGraph(data.timestamps, data.altitudes);
+                    }
+                    if (data.timestamps && data.altitudes) {
+                        updateGraph2(data.timestamps, data.temperature);
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching history:', error);
+            }
+        };
+
+        // On page load, fetch the history and then fetch live data every 5 seconds
+        window.onload = async () => {
+            await fetchHistory();  // Fetch historical data on page load
+            setInterval(fetchData, 5000);  // Fetch live data every 5 seconds
+        };
+
+
+
+
+        
         document.addEventListener("DOMContentLoaded", function () {
             fetchMessageHistory();
             fetchLatestMessage();
@@ -79,25 +167,25 @@
             }
         };
 
-        // Initialize Leaflet map
-        const map = L.map('map').setView([0, 0], 2);
-        const marker = L.marker([0, 0]).addTo(map);
+        // // Initialize Leaflet map
+        // const map = L.map('map').setView([0, 0], 2);
+        // const marker = L.marker([0, 0]).addTo(map);
 
-        const updateMap = async () => {
-            try {
-                const response = await fetch('/live-data');
-                const data = await response.json();
-                if (data.latitude && data.longitude) {
-                    marker.setLatLng([data.latitude, data.longitude]);
-                    map.setView([data.latitude, data.longitude], 8);
-                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
-                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
-                }
-            } catch (error) {
-                console.error('Error updating map:', error);
-            }
-        };
-        setInterval(updateMap, 1000);
+        // const updateMap = async () => {
+        //     try {
+        //         const response = await fetch('/live-data');
+        //         const data = await response.json();
+        //         if (data.latitude && data.longitude) {
+        //             marker.setLatLng([data.latitude, data.longitude]);
+        //             map.setView([data.latitude, data.longitude], 8);
+        //             document.getElementById('lat').textContent = data.latitude.toFixed(6);
+        //             document.getElementById('lon').textContent = data.longitude.toFixed(6);
+        //         }
+        //     } catch (error) {
+        //         console.error('Error updating map:', error);
+        //     }
+        // };
+        // setInterval(updateMap, 1000);
 
         // Improved Graph Update Function
         const updateGraph = (data) => {
