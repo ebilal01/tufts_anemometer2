@@ -116,6 +116,21 @@
                 arrowHead.position = direction.scale(arrowLength + arrowHeadLength / 2);
                 arrowHead.lookAt(direction.scale(arrowLength)); // Point the arrowhead in the direction of the vector
             };
+                async function fetchLatestMessage() {
+            try {
+                const response = await fetch(`${baseURL}/live-data`);
+                if (!response.ok) throw new Error('Failed to fetch live data');
+                const data = await response.json();
+
+                if (data.message) {
+                    document.getElementById('latest-message').textContent = `Message: ${data.message}`;
+                } else {
+                    document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
+                }
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        }
 
              // Fetch and display message history
         // Fetch and display message history
