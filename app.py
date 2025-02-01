@@ -8,8 +8,10 @@ import eventlet
 import csv
 import struct
 import datetime
+from flask_cors import CORS
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
+CORS(app)  # Enable CORS for all routes
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # In-memory store for demonstration purposes
@@ -146,9 +148,9 @@ def animation_data():
     }
     return jsonify(telemetry_data)
 
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
 
 
