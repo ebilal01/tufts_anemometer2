@@ -5,33 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flight Data Visualization</title>
     <link rel="stylesheet" href="/static/format.css">
-    
-    <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
+    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- For altitude graph -->
 </head>
 <body>
     <h1>Flight Data Visualization</h1>
-
-    <!-- Map Container -->
     <div id="map" style="height: 500px; width: 100%;"></div>
-    
-    <!-- Altitude Graph -->
     <canvas id="altitudeGraph" style="height: 300px; width: 100%; margin-top: 20px;"></canvas>
-    
-    <!-- Babylon.js 3D Model -->
     <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
 
-    <!-- Coordinate Display -->
     <div id="coordinates" style="margin-top: 10px; font-size: 16px;">
         Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
     </div>
 
-    <!-- CSV Download Button -->
     <div id="download-section" style="margin-top: 20px;">
         <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
             Download History as CSV
@@ -45,13 +36,13 @@
         const map = L.map('map').setView([0, 0], 2);
         const marker = L.marker([0, 0]).addTo(map);
 
-        // Fetch and update map
         const updateMap = async () => {
             try {
                 const response = await fetch(`${baseURL}/live-data`);
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
                 const data = await response.json();
+                console.log("Live data received:", data);
 
                 if (data.latitude !== undefined && data.longitude !== undefined) {
                     const lat = parseFloat(data.latitude);
@@ -71,19 +62,18 @@
 
         setInterval(updateMap, 1000);
 
-        // Babylon.js 3D Model
+        // Babylon.js 3D model setup
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true);
-        let satelliteModel;
 
         const createScene = () => {
             const scene = new BABYLON.Scene(engine);
             const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
             camera.attachControl(canvas, true);
-            const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
+            new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
 
-            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, (loadedScene) => {
-                satelliteModel = loadedScene.meshes[0];
+            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
+                console.log('Satellite model loaded');
             });
 
             return scene;
@@ -94,45 +84,61 @@
             scene.render();
         });
 
-        window.addEventListener('resize', () => engine.resize());
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
 
-        // Altitude Graph (Chart.js)
+        // Altitude graph setup
         const ctx = document.getElementById('altitudeGraph').getContext('2d');
-        const altitudeData = {
-            labels: [],
-            datasets: [{ label: 'Altitude (m)', data: [], borderColor: 'blue', borderWidth: 2, fill: false }]
-        };
-        const altitudeChart = new Chart(ctx, { type: 'line', data: altitudeData });
+        const altitudeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Altitude (m)',
+                    borderColor: 'rgb(75, 192, 192)',
+                    data: [],
+                    fill: false
+                }]
+            }
+        });
 
         const updateAltitudeGraph = (altitude) => {
-            const now = new Date().toLocaleTimeString();
-            altitudeData.labels.push(now);
-            altitudeData.datasets[0].data.push(altitude);
-            if (altitudeData.labels.length > 20) {
-                altitudeData.labels.shift();
-                altitudeData.datasets[0].data.shift();
+            if (altitude !== undefined) {
+                const now = new Date().toLocaleTimeString();
+                altitudeChart.data.labels.push(now);
+                altitudeChart.data.datasets[0].data.push(altitude);
+
+                if (altitudeChart.data.labels.length > 50) {
+                    altitudeChart.data.labels.shift();
+                    altitudeChart.data.datasets[0].data.shift();
+                }
+
+                altitudeChart.update();
             }
-            altitudeChart.update();
         };
 
-        const fetchTelemetryData = async () => {
+        const fetchLatestMessage = async () => {
             try {
-                const response = await fetch(`${baseURL}/animation-data`);
-                if (!response.ok) throw new Error('Failed to fetch telemetry data');
-                const telemetry = await response.json();
+                const response = await fetch(`${baseURL}/live-data`);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-                if (telemetry.altitude) {
-                    updateAltitudeGraph(parseFloat(telemetry.altitude));
+                const data = await response.json();
+                console.log("Latest message:", data);
+
+                if (data.altitude !== undefined) {
+                    updateAltitudeGraph(parseFloat(data.altitude));
                 }
             } catch (error) {
-                console.error('Error fetching telemetry data:', error);
+                console.error("Error fetching latest message:", error);
             }
         };
 
-        setInterval(fetchTelemetryData, 1000);
+        setInterval(fetchLatestMessage, 1000);
     </script>
 </body>
 </html>
+
 
 
 
