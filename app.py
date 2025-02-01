@@ -17,6 +17,32 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # In-memory store for demonstration purposes
 message_history = []
 
+# Path to store flight data history
+FLIGHT_HISTORY_FILE = 'flight_data.json'
+
+# Ensure flight data is saved to a file
+def save_flight_data(flight_data):
+    if not os.path.exists(FLIGHT_HISTORY_FILE):
+        with open(FLIGHT_HISTORY_FILE, 'w') as f:
+            json.dump([], f)  # Initialize the file with an empty list
+
+    with open(FLIGHT_HISTORY_FILE, 'r') as f:
+        flight_history = json.load(f)
+
+    # Append the new flight data
+    flight_history.append(flight_data)
+
+    # Save the updated flight history
+    with open(FLIGHT_HISTORY_FILE, 'w') as f:
+        json.dump(flight_history, f)
+
+# Load the flight history from the file
+def load_flight_history():
+    if not os.path.exists(FLIGHT_HISTORY_FILE):
+        return []  # No history available
+    with open(FLIGHT_HISTORY_FILE, 'r') as f:
+        return json.load(f)
+
 @app.route('/')
 def index():
     return render_template('index.html')  # Ensure this matches the frontend file
