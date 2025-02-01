@@ -23,19 +23,18 @@
         Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
     </div>
 
-    <!-- Latest Message -->
-    <div>
-        <h2>Latest Message:</h2>
-        <ul id="message">No messages yet.</ul>
-    </div>
+   <h2>Latest Message:</h2>
+<ul id="message">No messages yet.</ul>
+</div>
 
-    <!-- Historical Messages -->
-    <div>
-        <h2>Message History:</h2>
-        <ul id="message-history"></ul>  <!-- This was missing -->
-            <!-- Messages will be dynamically added here -->
-        </ul>
-    </div>
+<!-- Historical Messages -->
+<div>
+    <h2>Message History:</h2>
+    <ul id="message-history">
+        <!-- Messages will be dynamically added here -->
+    </ul> <!-- Closing the ul inside the div -->
+</div>
+
 
     <!-- CSV Download Button -->
     <div id="download-section" style="margin-top: 20px;">
@@ -264,6 +263,17 @@
         window.addEventListener("resize", () => {
             engine.resize();
         });
+
+        // Example of dynamically updating the Latest Message
+const latestMessage = document.getElementById('message');
+latestMessage.innerHTML = 'New message content here!';
+
+// Example of dynamically updating the Message History
+const messageHistory = document.getElementById('message-history');
+const newMessageItem = document.createElement('li');
+newMessageItem.textContent = 'Previous message content here!';
+messageHistory.appendChild(newMessageItem);
+
     </script>
 </body>
 </html>
