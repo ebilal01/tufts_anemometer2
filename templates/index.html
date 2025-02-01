@@ -4,122 +4,146 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flight Data Visualization</title>
-
-    <!-- Leaflet for Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Babylon.js for 3D Model -->
+    <link rel="stylesheet" href="/static/format.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
-
-    <!-- Chart.js for Graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Socket.IO for Real-time Updates -->
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
-
-    <!-- Custom Styles -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='format.css') }}">
+    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
 </head>
 <body>
     <h1>Flight Data Visualization</h1>
+    <div id="map" style="height: 500px; width: 100%;"></div>
+    <div id="graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
+    <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
 
-    <div id="dashboard">
-        <div id="map-container">
-            <h2>Live Map</h2>
-            <div id="map"></div>
-            <p>Latitude: <span id="lat">N/A</span></p>
-            <p>Longitude: <span id="lon">N/A</span></p>
-        </div>
+    <!-- Label for Latitude and Longitude -->
+    <div id="coordinates" style="margin-top: 10px; font-size: 16px;">
+        Latitude: <span id="lat">0</span>, Longitude: <span id="lon">0</span>
+    </div>
 
-        <div id="altitude-container">
-            <h2>Altitude Graph</h2>
-            <canvas id="altitudeChart"></canvas>
-        </div>
-
-        <div id="model-container">
-            <h2>3D Model</h2>
-            <canvas id="renderCanvas"></canvas>
-        </div>
+    <!-- CSV Download Button -->
+    <div id="download-section" style="margin-top: 20px;">
+        <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
+            Download History as CSV
+        </a>
     </div>
 
     <script>
-        // Initialize Map
-        const map = L.map('map').setView([42.4072, -71.3824], 8); // Default to Massachusetts
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-        }).addTo(map);
-        const marker = L.marker([42.4072, -71.3824]).addTo(map);
+         const baseURL = 'https://tufts-anemometer2.onrender.com';  // Replace with your actual Render app URL
+        // Initialize Leaflet map
+        const map = L.map('map').setView([0, 0], 2);
+        const marker = L.marker([0, 0]).addTo(map);
 
-        // Initialize Altitude Chart
-        const ctx = document.getElementById('altitudeChart').getContext('2d');
-        const altitudeChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Altitude (m)',
-                    data: [],
-                    borderColor: 'blue',
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { title: { display: true, text: 'Time' } },
-                    y: { title: { display: true, text: 'Altitude (m)' } }
+        const updateMap = async () => {
+            try {
+                const response = await fetch('/live-data');
+                const data = await response.json();
+                if (data.latitude && data.longitude) {
+                    marker.setLatLng([data.latitude, data.longitude]);
+                    map.setView([data.latitude, data.longitude], 8);
+                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
+                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
                 }
+            } catch (error) {
+                console.error('Error updating map:', error);
             }
+        };
+        setInterval(updateMap, 1000);
+
+        // Babylon.js for 3D rendering
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+
+            // Camera and light
+            const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
+
+            // Load satellite model
+            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
+                console.log('Satellite model loaded');
+            });
+
+            // Create the arrow with a small offset from the model
+            const arrowLength = 2; // Length of the arrow
+            const arrowHeadLength = 0.5; // Length of the arrowhead
+            const arrowHeadWidth = 0.2; // Width of the arrowhead
+            const arrowColor = new BABYLON.Color3(1, 0, 0); // Red color for the arrow
+
+            // Create an arrow from the model (positioned away from the model)
+            const arrow = BABYLON.MeshBuilder.CreateLines("arrow", {
+                points: [
+                    new BABYLON.Vector3(0, 0, 0), // Arrow start point (origin)
+                    new BABYLON.Vector3(arrowLength, 0, 0) // Arrow end point
+                ]
+            }, scene);
+
+            // Add arrowhead
+            const arrowHead = BABYLON.MeshBuilder.CreateCylinder("arrowHead", {
+                diameterTop: 0,
+                diameterBottom: arrowHeadWidth,
+                height: arrowHeadLength,
+                tessellation: 4
+            }, scene);
+
+            // Position the arrowhead at the end of the arrow
+            arrowHead.position = new BABYLON.Vector3(arrowLength + arrowHeadLength / 2, 0, 0);
+
+            // Color the arrow and arrowhead red
+            arrow.color = arrowColor;
+            arrowHead.material = new BABYLON.StandardMaterial("arrowMat", scene);
+            arrowHead.material.diffuseColor = arrowColor;
+
+            // Add a small offset to avoid the arrow colliding with the model
+            const offset = 0.5;
+            arrow.position = new BABYLON.Vector3(offset, 0, 0); // Offset the arrow from the model by 0.5 units
+            arrowHead.position.addInPlace(new BABYLON.Vector3(offset, 0, 0));
+
+            // Function to update the arrow direction with the force vector
+            const updateArrowDirection = (force) => {
+                const direction = new BABYLON.Vector3(force.x, force.y, force.z).normalize();
+                arrow.position = direction.multiplyByFloats(offset, offset, offset);
+                arrow.setVerticesData(BABYLON.VertexBuffer.PositionKind, [
+                    new BABYLON.Vector3(0, 0, 0), // Arrow start point
+                    direction.scale(arrowLength) // Arrow end point
+                ]);
+                // Update arrowhead position
+                arrowHead.position = direction.scale(arrowLength + arrowHeadLength / 2);
+                arrowHead.lookAt(direction.scale(arrowLength)); // Point the arrowhead in the direction of the vector
+            };
+
+            // Fetch live telemetry data
+            const fetchTelemetryData = async () => {
+                try {
+                    const response = await fetch('/animation-data');
+                    const telemetry = await response.json();
+                    console.log('Telemetry:', telemetry);
+
+                    // Update the arrow direction based on the force vector
+                    const force = telemetry.force;
+                    updateArrowDirection(force);
+                } catch (error) {
+                    console.error('Error fetching telemetry data:', error);
+                }
+            };
+
+            setInterval(fetchTelemetryData, 1000);
+
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(() => {
+            scene.render();
         });
 
-        // Update Altitude Graph
-        function updateAltitudeGraph(altitude) {
-            const time = new Date().toLocaleTimeString();
-            altitudeChart.data.labels.push(time);
-            altitudeChart.data.datasets[0].data.push(altitude);
-            if (altitudeChart.data.labels.length > 20) {
-                altitudeChart.data.labels.shift();
-                altitudeChart.data.datasets[0].data.shift();
-            }
-            altitudeChart.update();
-        }
-
-        // Babylon.js 3D Model (Placeholder)
-        const canvas = document.getElementById("renderCanvas");
-        const engine = new BABYLON.Engine(canvas, true);
-        const scene = new BABYLON.Scene(engine);
-        const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 5, BABYLON.Vector3.Zero(), scene);
-        camera.attachControl(canvas, true);
-        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-        const box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
-        engine.runRenderLoop(() => scene.render());
-        window.addEventListener("resize", () => engine.resize());
-
-        // Socket.IO for Real-time Updates
-        const socket = io.connect('https://tufts-anemometer2.onrender.com');
-
-        socket.on('new_data', (data) => {
-            console.log("Real-time update received:", data);
-
-            // Update Map
-            if (data.latitude !== undefined && data.longitude !== undefined) {
-                const lat = parseFloat(data.latitude);
-                const lon = parseFloat(data.longitude);
-                if (!isNaN(lat) && !isNaN(lon)) {
-                    marker.setLatLng([lat, lon]);
-                    map.setView([lat, lon], 8);
-                    document.getElementById('lat').textContent = lat.toFixed(6);
-                    document.getElementById('lon').textContent = lon.toFixed(6);
-                }
-            }
-
-            // Update Altitude Graph
-            if (data.altitude !== undefined) {
-                updateAltitudeGraph(parseFloat(data.altitude));
-            }
-
-            // Update 3D Model (Future: Rotate based on telemetry)
+        window.addEventListener('resize', () => {
+            engine.resize();
         });
     </script>
 </body>
