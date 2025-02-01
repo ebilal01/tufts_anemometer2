@@ -40,6 +40,32 @@
             fetchLatestMessage();
         });
 
+        const updateLiveData = async () => {
+    try {
+        const response = await fetch(`${BASE_URL}/live-data`);
+        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+
+        const data = await response.json();
+        console.log("Telemetry Data:", data);
+
+        // Ensure required fields exist before updating UI
+        if (data.latitude && data.longitude) {
+            marker.setLatLng([data.latitude, data.longitude]);
+            map.setView([data.latitude, data.longitude], 8);
+            document.getElementById('lat').textContent = data.latitude.toFixed(6);
+            document.getElementById('lon').textContent = data.longitude.toFixed(6);
+        }
+
+        if (data.sent_time && data.altitude) {
+            updateGraph(data);
+        }
+
+    } catch (error) {
+        console.error("Error updating live data:", error);
+    }
+};
+
+
         // Initialize Leaflet map
         const map = L.map('map').setView([0, 0], 2);
         const marker = L.marker([0, 0]).addTo(map);
@@ -60,16 +86,29 @@
         };
         setInterval(updateMap, 1000);
 
-        // Update the graph with new altitude data
-        const updateGraph = (data) => {
-    const timestamps = [data.sent_time];  // Ensure timestamps are defined
-const altitudes = [data.altitude];    // Ensure altitudes are defined
-const graphData = [{
-    x: timestamps,
-    y: altitudes,
-    type: 'scatter'
-}];
-Plotly.newPlot('graph', graphData);
+       // Improved Live Data Fetching for Map and Graph
+
+// Improved Graph Update Function
+const updateGraph = (data) => {
+    if (!data || !data.sent_time || !data.altitude) return;
+
+    const timestamps = [data.sent_time]; // Ensure timestamps array exists
+    const altitudes = [data.altitude]; // Ensure altitudes array exists
+
+    const graphData = [{
+        x: timestamps,
+        y: altitudes,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'blue' }
+    }];
+
+    Plotly.react('graph', graphData);
+};
+
+// Fetch and update data every second
+setInterval(updateLiveData, 1000);
+
 
          // Fetch and display the latest message
         async function fetchLatestMessage() {
