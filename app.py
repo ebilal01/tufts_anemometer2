@@ -128,6 +128,24 @@ def download_history():
 def message_history_endpoint():
     return jsonify(message_history) if message_history else jsonify([])
 
+@app.route("/animation-data", methods=['GET'])
+def animation_data():
+    # Example live telemetry data
+    telemetry_data = {
+        "rotation": random.uniform(0, 360),  # Rotation in degrees
+        "position": {
+            "x": random.uniform(-5, 5),
+            "y": random.uniform(-5, 5),
+            "z": random.uniform(-5, 5)
+        },
+        "force": {
+            "x": random.uniform(0, 10),
+            "y": random.uniform(0, 10),
+            "z": random.uniform(0, 10)
+        }
+    }
+    return jsonify(telemetry_data)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
