@@ -64,48 +64,32 @@
             }
         };
 
-        // Initialize the map
+        // Initialize Leaflet map
         const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19
-        }).addTo(map);
-
-        // Initialize the flight path and marker
-        const flightPath = L.polyline([], { color: 'red' }).addTo(map);
         const marker = L.marker([0, 0]).addTo(map);
 
-const updateMap = async () => {
-    try {
-        const response = await fetch('/live-data');
-        const data = await response.json();
-        
-        if (data.latitude && data.longitude) {
-            // Update the marker and the map with new coordinates
-            marker.setLatLng([data.latitude, data.longitude]);
-            map.setView([data.latitude, data.longitude], 8);
-            
-            // Update the coordinates label
-            document.getElementById('lat').textContent = data.latitude.toFixed(6);
-            document.getElementById('lon').textContent = data.longitude.toFixed(6);
-        }
-    } catch (error) {
-        console.error('Error updating map:', error);
-    }
-};
+        const updateMap = async () => {
+            try {
+                const response = await fetch('/live-data');
+                const data = await response.json();
+                if (data.latitude && data.longitude) {
+                    marker.setLatLng([data.latitude, data.longitude]);
+                    map.setView([data.latitude, data.longitude], 8);
+                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
+                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
+                }
+            } catch (error) {
+                console.error('Error updating map:', error);
+            }
+        };
+        setInterval(updateMap, 1000);
 
+        // Improved Graph Update Function
+        const updateGraph = (data) => {
+            if (!data || !data.sent_time || !data.altitude) return;
 
-// Update the map every second
-setInterval(updateMap, 1000);
-
-
-const updateGraph = async () => {
-    try {
-        const response = await fetch('/live-data');
-        const data = await response.json();
-
-        if (data.sent_time && data.altitude) {
-            const timestamps = [data.sent_time];  // Use sent_time as the timestamp
-            const altitudes = [data.altitude];    // Use altitude as the value
+            const timestamps = [data.sent_time];
+            const altitudes = [data.altitude];
 
             const graphData = [{
                 x: timestamps,
@@ -115,24 +99,11 @@ const updateGraph = async () => {
                 line: { color: 'blue' }
             }];
 
-            Plotly.react('graph', graphData);  // Update graph
-        }
-    } catch (error) {
-        console.error('Error updating graph:', error);
-    }
-};
+            Plotly.react('graph', graphData);
+        };
 
-
-        // Update the graph with new data
-        Plotly.react('graph', graphData);
-    } catch (error) {
-        console.error('Error updating graph:', error);
-    }
-};
-
-// Fetch and update graph every second
-setInterval(updateGraph, 1000);
-
+        // Fetch and update data every second
+        setInterval(updateLiveData, 1000);
 
         // Fetch and display the latest message
         async function fetchLatestMessage() {
@@ -182,107 +153,19 @@ setInterval(updateGraph, 1000);
             setInterval(fetchLatestMessage, 5000);
         };
 
-          // Babylon.js for 3D rendering
-        const canvas = document.getElementById('renderCanvas');
+        // Babylon.js for 3D rendering
+        const canvas = document.getElementById("renderCanvas");
         const engine = new BABYLON.Engine(canvas, true);
 
-        const createScene = () => {
-            const scene = new BABYLON.Scene(engine);
-
-            // Camera and light
-            const camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
-            camera.attachControl(canvas, true);
-            const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(1, 1, 0), scene);
-
-            // Load satellite model
-            BABYLON.SceneLoader.Append('./static/models/', 'SATELLITE.gltf', scene, () => {
-                console.log('Satellite model loaded');
-            });
-
-            // Create the arrow with a small offset from the model
-            const arrowLength = 2; // Length of the arrow
-            const arrowHeadLength = 0.5; // Length of the arrowhead
-            const arrowHeadWidth = 0.2; // Width of the arrowhead
-            const arrowColor = new BABYLON.Color3(1, 0, 0); // Red color for the arrow
-
-            // Create an arrow from the model (positioned away from the model)
-            const arrow = BABYLON.MeshBuilder.CreateLines("arrow", {
-                points: [
-                    new BABYLON.Vector3(0, 0, 0), // Arrow start point (origin)
-                    new BABYLON.Vector3(arrowLength, 0, 0) // Arrow end point
-                ]
-            }, scene);
-
-            // Add arrowhead
-            const arrowHead = BABYLON.MeshBuilder.CreateCylinder("arrowHead", {
-                diameterTop: 0,
-                diameterBottom: arrowHeadWidth,
-                height: arrowHeadLength,
-                tessellation: 4
-            }, scene);
-
-            // Position the arrowhead at the end of the arrow
-            arrowHead.position = new BABYLON.Vector3(arrowLength + arrowHeadLength / 2, 0, 0);
-
-            // Color the arrow and arrowhead red
-            arrow.color = arrowColor;
-            arrowHead.material = new BABYLON.StandardMaterial("arrowMat", scene);
-            arrowHead.material.diffuseColor = arrowColor;
-
-            // Add a small offset to avoid the arrow colliding with the model
-            const offset = 0.5;
-            arrow.position = new BABYLON.Vector3(offset, 0, 0); // Offset the arrow from the model by 0.5 units
-            arrowHead.position.addInPlace(new BABYLON.Vector3(offset, 0, 0));
-
-            // Function to update the arrow direction with the force vector
-            const updateArrowDirection = (force) => {
-                const direction = new BABYLON.Vector3(force.x, force.y, force.z).normalize();
-                arrow.position = direction.multiplyByFloats(offset, offset, offset);
-                arrow.setVerticesData(BABYLON.VertexBuffer.PositionKind, [
-                    new BABYLON.Vector3(0, 0, 0), // Arrow start point
-                    direction.scale(arrowLength) // Arrow end point
-                ]);
-                // Update arrowhead position
-                arrowHead.position = direction.scale(arrowLength + arrowHeadLength / 2);
-                arrowHead.lookAt(direction.scale(arrowLength)); // Point the arrowhead in the direction of the vector
-            };
-
-            // Fetch live telemetry data
-            const fetchTelemetryData = async () => {
-                try {
-                    const response = await fetch('/animation-data');
-                    const telemetry = await response.json();
-                    console.log('Telemetry:', telemetry);
-
-                    // Update the arrow direction based on the force vector
-                    const force = telemetry.force;
-                    updateArrowDirection(force);
-                } catch (error) {
-                    console.error('Error fetching telemetry data:', error);
-                }
-            };
-
-            setInterval(fetchTelemetryData, 1000);
-
-            return scene;
-        };
-
-        const scene = createScene();
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
-
-        window.addEventListener('resize', () => {
-            engine.resize();
-        });
-    </script>
-    <h1>Tufts Anemometer</h1>
-    <p id="latitude">Latitude: Loading...</p>
-    <p id="longitude">Longitude: Loading...</p>
-    <p id="temperature">Temperature: Loading...</p>
+        const scene = new BABYLON.Scene(engine);
+        const camera = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 2, 10, BABYLON.Vector3.Zero(), scene);
+        camera.attachControl(canvas, true);
+        const light = new BABYLON.HemisphericLight("light1", BABYLON.Vector3.Up(), scene);
+        engine.runRenderLoop(function () { scene.render(); });
     </script>
 </body>
 </html>
+
 
 
 
