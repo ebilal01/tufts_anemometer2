@@ -31,7 +31,13 @@
     </div>
 
     <script>
-         const baseURL = 'https://tufts-anemometer2.onrender.com';  // Replace with your actual Render app URL
+          const BASE_URL = "https://your-api-endpoint.com"; // Update this with the actual backend URL
+
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchMessageHistory();
+            fetchLatestMessage();
+        });
+
         // Initialize Leaflet map
         const map = L.map('map').setView([0, 0], 2);
         const marker = L.marker([0, 0]).addTo(map);
