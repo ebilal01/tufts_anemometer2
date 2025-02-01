@@ -71,17 +71,21 @@
          // Fetch and display the latest message
         async function fetchLatestMessage() {
             try {
-                const response = await fetch(`${baseURL}/live-data`);
-                if (!response.ok) throw new Error('Failed to fetch live data');
+                const response = await fetch(`${BASE_URL}/live-data`);
+                if (!response.ok) throw new Error("Failed to fetch latest message");
                 const data = await response.json();
+                console.log("Telemetry:", data);
 
-                if (data.message) {
-                    document.getElementById('latest-message').textContent = `Message: ${data.message}`;
-                } else {
-                    document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
-                }
+                // Ensure elements exist before modifying them
+                const latitudeElem = document.getElementById("latitude");
+                const longitudeElem = document.getElementById("longitude");
+                const temperatureElem = document.getElementById("temperature");
+
+                if (latitudeElem) latitudeElem.textContent = `Latitude: ${data.latitude}`;
+                if (longitudeElem) longitudeElem.textContent = `Longitude: ${data.longitude}`;
+                if (temperatureElem) temperatureElem.textContent = `Temperature: ${data.temperature_pht_c}°C`;
             } catch (error) {
-                console.error('Error fetching live data:', error);
+                console.error("Error fetching live data:", error);
             }
         }
 
@@ -206,6 +210,10 @@
             engine.resize();
         });
     </script>
+    <h1>Tufts Anemometer</h1>
+    <p id="latitude">Latitude: Loading...</p>
+    <p id="longitude">Longitude: Loading...</p>
+    <p id="temperature">Temperature: Loading...</p>
 </body>
 </html>
 
