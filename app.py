@@ -134,6 +134,23 @@ def handle_rockblock():
 def get_live_data():
     return jsonify(message_history[-1] if message_history else {"message": "No data received yet"})
 
+@app.route('/flight-data', methods=['GET'])
+def live_data():
+    # Simulate flight data with random values for testing
+    data = {
+        "latitude":  message_data["latitude"]
+        "longitude": message_data["longitude"]
+        "timestamps": message_data["sent_time"]
+        "altitudes": message_data["altitude"]
+    }
+
+    # Save flight data to file
+    save_flight_data(data)
+
+    # Return the simulated live data
+    return jsonify(data)
+
+
 @app.route('/history', methods=['GET'])
 def load_flight_history():
     return jsonify(message_history)
