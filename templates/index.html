@@ -123,7 +123,7 @@
        // Fetch and display the latest message
 async function fetchLatestMessage() {
     try {
-        const response = await fetch(`${baseURL}/live-data`);
+        const response = await fetch(`${BASE_URL}/live-data`);
         if (!response.ok) throw new Error('Failed to fetch live data');
         const data = await response.json();
 
@@ -140,7 +140,7 @@ async function fetchLatestMessage() {
 // Fetch and display message history
 async function fetchMessageHistory() {
     try {
-        const response = await fetch(`${baseURL}/message-history`);
+        const response = await fetch(`${BASE_URL}/message-history`);
         if (!response.ok) throw new Error('Failed to fetch message history');
         const historyData = await response.json();
 
