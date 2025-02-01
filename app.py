@@ -1,9 +1,11 @@
 from flask import Flask, render_template, jsonify, request, Response
+from flask_socketio import SocketIO
 import struct
 import datetime
 import csv
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 message_history = []
 
@@ -39,6 +41,7 @@ def handle_rockblock():
         }
 
         message_history.append(message_data)
+        socketio.emit('new_data', message_data)  # Send live update to clients
         return "OK"
 
     except Exception:
@@ -62,7 +65,8 @@ def download_history():
     return Response(generate_csv(), mimetype='text/csv')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000)
+
 
 
 
