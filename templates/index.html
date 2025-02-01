@@ -37,8 +37,6 @@
     </ul>
 </div>
 
-
-
     <!-- CSV Download Button -->
     <div id="download-section" style="margin-top: 20px;">
         <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
@@ -136,7 +134,6 @@
 
 
 
-
         
         document.addEventListener("DOMContentLoaded", function () {
             fetchMessageHistory();
@@ -167,28 +164,8 @@
             }
         };
 
-        // // Initialize Leaflet map
-        // const map = L.map('map').setView([0, 0], 2);
-        // const marker = L.marker([0, 0]).addTo(map);
-
-        // const updateMap = async () => {
-        //     try {
-        //         const response = await fetch('/live-data');
-        //         const data = await response.json();
-        //         if (data.latitude && data.longitude) {
-        //             marker.setLatLng([data.latitude, data.longitude]);
-        //             map.setView([data.latitude, data.longitude], 8);
-        //             document.getElementById('lat').textContent = data.latitude.toFixed(6);
-        //             document.getElementById('lon').textContent = data.longitude.toFixed(6);
-        //         }
-        //     } catch (error) {
-        //         console.error('Error updating map:', error);
-        //     }
-        // };
-        // setInterval(updateMap, 1000);
-
         // Improved Graph Update Function
-        const updateGraph = (data) => {
+        const updateGraph2 = (data) => {
             if (!data || !data.sent_time || !data.altitude) return;
 
             const timestamps = [data.sent_time];
@@ -301,68 +278,32 @@ window.onload = () => {
 
             // Fetch live telemetry data from the /live-data route
             const fetchTelemetryData = async () => {
-                try {
-                    const response = await fetch("/animation-data");
-                    const telemetry = await response.json();
-
-                    // Update satellite rotation and position
-                    if (satellite) {
-                        satellite.rotationQuaternion = BABYLON.Quaternion.FromEulerAngles(
-                            0,
-                            BABYLON.Tools.ToRadians(telemetry.rotation),
-                            0
-                        );
-                        satellite.position = new BABYLON.Vector3(telemetry.position.x, telemetry.position.y, telemetry.position.z);
-                    }
-
-                    // Update arrows based on force vectors and display magnitudes
-                    if (xArrow) {
-                        xArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(Math.PI / 2, telemetry.rotation, 0));
-                    }
-                    if (yArrow) {
-                        yArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, Math.PI / 2, telemetry.rotation));
-                    }
-                    if (zArrow) {
-                        zArrow.rotationQuaternion = BABYLON.Quaternion.FromEulerVector(new BABYLON.Vector3(0, 0, Math.PI / 2));
-                    }
-
-                    // Optional: Display force magnitudes
-                    const forceText = `Force Magnitudes: X: ${telemetry.force.x.toFixed(2)}, Y: ${telemetry.force.y.toFixed(2)}, Z: ${telemetry.force.z.toFixed(2)}`;
-                    console.log(forceText); // This can be displayed in the UI if needed
-                } catch (error) {
-                    console.error("Error fetching telemetry data:", error);
+                const response = await fetch(`${BASE_URL}/live-data`);
+                const telemetryData = await response.json();
+                console.log("Telemetry data:", telemetryData);
+                if (satellite) {
+                    // Update satellite position based on telemetry data
+                    const lat = telemetryData.latitude || 0;
+                    const lon = telemetryData.longitude || 0;
+                    satellite.position = new BABYLON.Vector3(lat, lon, 0);
+                    scene.render();
                 }
             };
 
-            // Fetch data initially and periodically
-            fetchTelemetryData();
-            setInterval(fetchTelemetryData, 1000); // Update every second
+            setInterval(fetchTelemetryData, 5000);
 
             return scene;
         };
 
         const scene = createScene();
+
         engine.runRenderLoop(() => {
             scene.render();
         });
-
-        window.addEventListener("resize", () => {
-            engine.resize();
-        });
-
-        // Example of dynamically updating the Latest Message
-const latestMessage = document.getElementById('message');
-latestMessage.innerHTML = 'New message content here!';
-
-// Example of dynamically updating the Message History
-const messageHistory = document.getElementById('message-history');
-const newMessageItem = document.createElement('li');
-newMessageItem.textContent = 'Previous message content here!';
-messageHistory.appendChild(newMessageItem);
-
     </script>
 </body>
 </html>
+
 
 
 
