@@ -24,7 +24,6 @@ def handle_rockblock():
     imei = request.args.get('imei')
     data = request.args.get('data')
 
-    # Debugging: Log incoming request
     print(f"Received POST /rockblock - IMEI: {imei}, Data: {data}")
 
     if imei != "300434065264590":
@@ -38,55 +37,64 @@ def handle_rockblock():
     try:
         byte_data = bytearray.fromhex(data)
 
-        if len(byte_data) != 50:  # Ensure 50 bytes as expected
-            print(f"Unexpected message length: {len(byte_data)} bytes")
+        # Ensure it's at least 50 bytes (sensor data size)
+        min_expected_size = 50  
+        if len(byte_data) < min_expected_size:
+            print(f"Message too short: {len(byte_data)} bytes")
             return "FAILED,17,Invalid message length", 400
 
-        # Unpack binary data into meaningful values
-        unpacked_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data)
-        unpacked_data = list(unpacked_data)
+        # Unpack the first 50 bytes as structured data
+        sensor_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data[:50])
+        sensor_data = list(sensor_data)
 
         # Scale values where necessary
-        for x in range(5, 12):  # Pressure and temperatures (multiplied by 10 before sending)
-            unpacked_data[x] /= 10
-        for x in range(12, 15):  # Average velocities (multiplied by 1000 before sending)
-            unpacked_data[x] /= 1000
-        for x in range(15, 21):  # Std and peak velocities (multiplied by 100 before sending)
-            unpacked_data[x] /= 100
+        for x in range(5, 12):  
+            sensor_data[x] /= 10  
+        for x in range(12, 15):  
+            sensor_data[x] /= 1000  
+        for x in range(15, 21):  
+            sensor_data[x] /= 100  
 
-        # Convert Unix Epoch timestamp to UTC format
-        sent_time_utc = datetime.datetime.fromtimestamp(unpacked_data[0], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+        sent_time_utc = datetime.datetime.fromtimestamp(sensor_data[0], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Extract extra message text if there are additional bytes beyond 50
+        extra_message = ""
+        if len(byte_data) > 50:
+            extra_bytes = byte_data[50:]  
+            extra_message = extra_bytes.decode('utf-8', errors='ignore').strip()  # Convert extra bytes to text
 
         # Store data for live retrieval
         message_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
-            "unix_epoch": unpacked_data[0],
-            "siv": unpacked_data[1],
-            "latitude": unpacked_data[2],
-            "longitude": unpacked_data[3],
-            "altitude": unpacked_data[4],
-            "pressure_mbar": unpacked_data[5],
-            "temperature_pht_c": unpacked_data[6],
-            "temperature_cj_c": unpacked_data[7],
-            "temperature_tctip_c": unpacked_data[8],
-            "roll_deg": unpacked_data[9],
-            "pitch_deg": unpacked_data[10],
-            "yaw_deg": unpacked_data[11],
-            "vavg_1_mps": unpacked_data[12],
-            "vavg_2_mps": unpacked_data[13],
-            "vavg_3_mps": unpacked_data[14],
-            "vstd_1_mps": unpacked_data[15],
-            "vstd_2_mps": unpacked_data[16],
-            "vstd_3_mps": unpacked_data[17],
-            "vpk_1_mps": unpacked_data[18],
-            "vpk_2_mps": unpacked_data[19],
-            "vpk_3_mps": unpacked_data[20],
+            "unix_epoch": sensor_data[0],
+            "siv": sensor_data[1],
+            "latitude": sensor_data[2],
+            "longitude": sensor_data[3],
+            "altitude": sensor_data[4],
+            "pressure_mbar": sensor_data[5],
+            "temperature_pht_c": sensor_data[6],
+            "temperature_cj_c": sensor_data[7],
+            "temperature_tctip_c": sensor_data[8],
+            "roll_deg": sensor_data[9],
+            "pitch_deg": sensor_data[10],
+            "yaw_deg": sensor_data[11],
+            "vavg_1_mps": sensor_data[12],
+            "vavg_2_mps": sensor_data[13],
+            "vavg_3_mps": sensor_data[14],
+            "vstd_1_mps": sensor_data[15],
+            "vstd_2_mps": sensor_data[16],
+            "vstd_3_mps": sensor_data[17],
+            "vpk_1_mps": sensor_data[18],
+            "vpk_2_mps": sensor_data[19],
+            "vpk_3_mps": sensor_data[20],
+            "message": extra_message if extra_message else "No extra message"
         }
 
+        # Append to history
         message_history.append(message_data)
 
-        print(f"Decoded Message: {message_data}")
+        print(f"Processed and stored message: {message_data}")
 
         return "OK,0"
 
