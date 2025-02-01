@@ -117,13 +117,17 @@ def download_history():
 
     def generate_csv():
         fieldnames = message_history[0].keys()
-        csv_output = csv.DictWriter(Response(), fieldnames=fieldnames)
-        yield ','.join(fieldnames) + '\n'
+        yield ','.join(fieldnames) + '\n'  # Header row
         for row in message_history:
-            yield ','.join(str(row[field]) for field in fieldnames) + '\n'
+            yield ','.join(str(row[field]) for field in fieldnames) + '\n'  # Data rows
 
     return Response(generate_csv(), mimetype='text/csv',
                     headers={"Content-Disposition": "attachment; filename=flight_history.csv"})
+
+@app.route('/message-history', methods=['GET'])
+def message_history_endpoint():
+    return jsonify(message_history) if message_history else jsonify([])
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
