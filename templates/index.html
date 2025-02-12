@@ -19,165 +19,139 @@
     <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
     <div id="temperature-graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
 
-    <!-- Label for Latitude and Longitude -->
-    <!-- Label for Latitude and Longitude -->
-<!-- Label for Latitude, Longitude, and Temperature -->
-<div style="margin-top: 10px; font-size: 16px;">
-    Latitude: <span id="lat">0</span>
-</div>
-<div style="margin-top: 10px; font-size: 16px;">
-    Longitude: <span id="lon">0</span>
-</div>
-<div style="margin-top: 10px; font-size: 16px;">
-    Temperature: <span id="temp">0</span> °C
-</div>
+    <div style="margin-top: 10px; font-size: 16px;">
+        Latitude: <span id="lat">0</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 16px;">
+        Longitude: <span id="lon">0</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 16px;">
+        Temperature: <span id="temp">0</span> °C
+    </div>
 
+    <div>
+        <h2>Latest Message:</h2>
+        <p id="latest-message">No messages yet.</p>
+    </div>
 
+    <div>
+        <h2>Message History:</h2>
+        <ul id="message-history">
+        </ul>
+    </div>
 
-    <!-- Latest Message -->
-<div>
-    <h2>Latest Message:</h2>
-    <p id="latest-message">No messages yet.</p>
-</div>
-
-<!-- Historical Messages -->
-<div>
-    <h2>Message History:</h2>
-    <ul id="message-history">
-        <!-- Messages will be dynamically added here -->
-    </ul>
-</div>
-
-    <!-- CSV Download Button -->
     <div id="download-section" style="margin-top: 20px;">
         <a href="/download-history" class="btn" download style="text-decoration: none; color: white; background-color: #007BFF; padding: 10px 15px; border-radius: 5px; font-size: 16px;">
             Download History as CSV
         </a>
     </div>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <script>
         const BASE_URL = "https://tufts-anemometer2.onrender.com"; // Update this with the actual backend URL
 
-
-        // Initialize the map
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19
         }).addTo(map);
 
-        // Initialize the flight path and marker
         const flightPath = L.polyline([], { color: 'red' }).addTo(map);
         const marker = L.marker([0, 0]).addTo(map);
 
-     const updateMap = (latitude, longitude) => {
-    if (latitude === undefined || longitude === undefined) return;  // Explicit undefined check
+        const updateMap = (latitude, longitude) => {
+            if (latitude === undefined || longitude === undefined) return;  
 
-    const latLng = [latitude, longitude];
+            const latLng = [latitude, longitude];
+            flightPath.addLatLng(latLng);
+            marker.setLatLng(latLng);
 
-    // Add point to flight path
-    flightPath.addLatLng(latLng);
-    marker.setLatLng(latLng);
+            if (flightPath.getLatLngs().length > 1) {
+                map.fitBounds(flightPath.getBounds());
+            }
 
-    // Ensure map bounds update properly
-    if (flightPath.getLatLngs().length > 1) {
-        map.fitBounds(flightPath.getBounds());
-    }
+            document.getElementById('lat').textContent = latitude.toFixed(6);
+            document.getElementById('lon').textContent = longitude.toFixed(6);
+        };
 
-    // Update coordinate labels
-    document.getElementById('lat').textContent = latitude.toFixed(6);
-    document.getElementById('lon').textContent = longitude.toFixed(6);
-};
+        const updateGraph = (data) => {
+            if (!data || !data.sent_time || !data.altitude) return;
 
+            const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
+            const altitudes = Array.isArray(data.altitude) ? data.altitude : [data.altitude];
 
-       const updateGraph = (data) => {
-    if (!data || !data.sent_time || !data.altitude) return;
+            const graphData = [{
+                x: timestamps,
+                y: altitudes,
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: 'blue' },
+                name: "Altitude (m)"
+            }];
 
-    // Convert data into an array for consistent updates
-    const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
-    const altitudes = Array.isArray(data.altitude) ? data.altitude : [data.altitude];
+            const layout = {
+                title: "Altitude Over Time",
+                xaxis: { title: "Time" },
+                yaxis: { title: "Altitude (m)" }
+            };
 
-    const graphData = [{
-        x: timestamps,
-        y: altitudes,
-        type: 'scatter',
-        mode: 'lines+markers',
-        line: { color: 'blue' },
-        name: "Altitude (m)"
-    }];
-
-    const layout = {
-        title: "Altitude Over Time",
-        xaxis: { title: "Time" },
-        yaxis: { title: "Altitude (m)" }
-    };
-
-    Plotly.react('graph', graphData, layout);
-};
+            Plotly.react('graph', graphData, layout);
+        };
 
         const updateTemperatureGraph = (data) => {
-    if (!data.sent_time || data.temperature_cj_c === undefined) return;
+            if (!data.sent_time || data.temperature_cj_c === undefined) return;
 
-    const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
-    const temperatures = Array.isArray(data.temperature_cj_c) ? data.temperature_cj_c : [data.temperature_cj_c];
+            const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
+            const temperatures = Array.isArray(data.temperature_cj_c) ? data.temperature_cj_c : [data.temperature_cj_c];
 
-    const tempGraphData = [{
-        x: timestamps,
-        y: temperatures,
-        type: 'scatter',
-        mode: 'lines+markers',
-        line: { color: 'red' },
-        name: "Temperature (°C)"
-    }];
+            const tempGraphData = [{
+                x: timestamps,
+                y: temperatures,
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: 'red' },
+                name: "Temperature (°C)"
+            }];
 
-    const layout = {
-        title: "Temperature Over Time",
-        xaxis: { title: "Time" },
-        yaxis: { title: "Temperature (°C)" }
-    };
+            const layout = {
+                title: "Temperature Over Time",
+                xaxis: { title: "Time" },
+                yaxis: { title: "Temperature (°C)" }
+            };
 
-    Plotly.react('temperature-graph', tempGraphData, layout);
-};
+            Plotly.react('temperature-graph', tempGraphData, layout);
+        };
 
+        const fetchData = async () => {
+            try {
+                const response = await fetch(`${BASE_URL}/live-data`);
+                if (!response.ok) throw new Error('Failed to fetch live data');
+                const data = await response.json();
 
+                if (data.latitude !== undefined && data.longitude !== undefined) {
+                    updateMap(data.latitude, data.longitude);
+                    document.getElementById('lat').textContent = data.latitude.toFixed(6);
+                    document.getElementById('lon').textContent = data.longitude.toFixed(6);
+                }
 
-    const fetchData = async () => {
-    try {
-        const response = await fetch(${BASE_URL}/live-data);
-        if (!response.ok) throw new Error('Failed to fetch live data');
-        const data = await response.json();
+                if (data.sent_time && data.altitude) {
+                    updateGraph(data);
+                }
 
-        // Ensure latitude and longitude update correctly
-        if (data.latitude !== undefined && data.longitude !== undefined) {
-            updateMap(data.latitude, data.longitude);
-            document.getElementById('lat').textContent = data.latitude.toFixed(6);
-            document.getElementById('lon').textContent = data.longitude.toFixed(6);
-        }
+                if (data.sent_time && data.temperature_cj_c !== undefined) {
+                    updateTemperatureGraph(data);
+                    document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
+                }
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        };
 
-        if (data.sent_time && data.altitude) {
-            updateGraph(data);
-        }
-
-        if (data.sent_time && data.temperature_cj_c !== undefined) {
-            updateTemperatureGraph(data);
-            document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
-        }
-
-    } catch (error) {
-        console.error('Error fetching live data:', error);
-    }
-};
-
-
-
-        // Fetch historical flight data from the /history endpoint
         const fetchHistory = async () => {
             try {
-                const response = await fetch(${baseURL}/history);
+                const response = await fetch(`${BASE_URL}/history`);
                 if (!response.ok) throw new Error('Failed to fetch history');
                 const history = await response.json();
 
-                // Iterate through the historical data and update the map and graph
                 history.forEach((data) => {
                     if (data.latitude && data.longitude) {
                         updateMap(data.latitude, data.longitude);
@@ -195,173 +169,81 @@
             }
         };
 
-    
-
         window.onload = async () => {
-    await fetchHistory();  // Load past data on startup
-    fetchData();  // Fetch live data once immediately
-    setInterval(fetchData, 5000);  // Fetch new data every 5 seconds
-};
+            await fetchHistory();
+            fetchData();
+            setInterval(fetchData, 5000);
+        };
 
-
-
-
-        
         document.addEventListener("DOMContentLoaded", function () {
             fetchMessageHistory();
             fetchLatestMessage();
         });
 
-    const updateLiveData = async () => {
-    try {
-        const response = await fetch(${BASE_URL}/live-data);
-        if (!response.ok) throw new Error(Server responded with status ${response.status});
+        const updateLiveData = async () => {
+            try {
+                const response = await fetch(`${BASE_URL}/live-data`);
+                if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
 
-        const data = await response.json();
-        console.log("Telemetry Data:", data);
+                const data = await response.json();
+                console.log("Telemetry Data:", data);
 
-        // Handle latitude/longitude updates properly
-        const latitude = data.latitude && Math.abs(data.latitude) > 1e-6 ? data.latitude : 0;
-        const longitude = data.longitude && Math.abs(data.longitude) > 1e-6 ? data.longitude : 0;
-        updateMap(latitude, longitude);
+                const latitude = data.latitude && Math.abs(data.latitude) > 1e-6 ? data.latitude : 0;
+                const longitude = data.longitude && Math.abs(data.longitude) > 1e-6 ? data.longitude : 0;
+                updateMap(latitude, longitude);
 
-        if (data.sent_time && data.altitude) {
-            updateGraph(data);
-        }
-
-        // ✅ Ensure Temperature is Displayed Correctly
-        if (data.temperature_cj_c !== undefined) {
-            document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
-            updateTemperatureGraph(data);
-        }
-
-    } catch (error) {
-        console.error("Error updating live data:", error);
-    }
-};
-
-// Fetch and update data every second
-setInterval(updateLiveData, 1000);
-
-
-       // Fetch and display the latest message
-async function fetchLatestMessage() {
-    try {
-        const response = await fetch(${BASE_URL}/live-data);
-        if (!response.ok) throw new Error('Failed to fetch live data');
-        const data = await response.json();
-
-        if (data.message) {
-            document.getElementById('latest-message').textContent = Message: ${data.message};
-        } else {
-            document.getElementById('latest-message').textContent = Received structured data at ${data.received_time};
-        }
-    } catch (error) {
-        console.error('Error fetching live data:', error);
-    }
-}
-
-// Fetch and display message history
-async function fetchMessageHistory() {
-    try {
-        const response = await fetch(${BASE_URL}/message-history);
-        if (!response.ok) throw new Error('Failed to fetch message history');
-        const historyData = await response.json();
-
-        const historyList = document.getElementById('message-history');
-        historyList.innerHTML = ''; // Clear any old history before appending
-
-        historyData.forEach((msg) => {
-            const listItem = document.createElement('li');
-            listItem.textContent = (${msg.received_time}) Msg: ${msg.message} | Lat: ${msg.latitude}, Lon: ${msg.longitude};
-            historyList.appendChild(listItem);
-        });
-    } catch (error) {
-        console.error('Error fetching message history:', error);
-    }
-}
-
-// Fetch data on page load and refresh periodically
-window.onload = () => {
-    fetchLatestMessage(); // Load latest message
-    fetchMessageHistory(); // Load message history
-    setInterval(fetchLatestMessage, 5000); // Refresh latest message every 5 seconds
-};
-        // Babylon.js for 3D rendering
-         const canvas = document.getElementById("renderCanvas");
-        const engine = new BABYLON.Engine(canvas, true);
-
-        const createScene = () => {
-            const scene = new BABYLON.Scene(engine);
-
-            // Camera and light
-            const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 4, 20, BABYLON.Vector3.Zero(), scene);
-            camera.attachControl(canvas, true);
-            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
-
-            // Load satellite model
-            let satellite;
-            BABYLON.SceneLoader.Append("./static/models/", "SATELLITE.gltf", scene, () => {
-                satellite = scene.meshes[0];
-                console.log("Satellite loaded");
-            });
-
-            // Create arrows for force vectors
-            const createArrow = (direction, color) => {
-                const arrow = BABYLON.MeshBuilder.CreateCylinder("arrow", {
-                    height: 1.5,
-                    diameterTop: 0,
-                    diameterBottom: 0.2,
-                }, scene);
-
-                const arrowMaterial = new BABYLON.StandardMaterial("arrowMaterial", scene);
-                arrowMaterial.diffuseColor = color;
-                arrow.material = arrowMaterial;
-
-                const rotationQuaternion = BABYLON.Quaternion.FromEulerVector(direction);
-                arrow.rotationQuaternion = rotationQuaternion;
-
-                return arrow;
-            };
-
-            // Define force arrows
-            const xArrow = createArrow(new BABYLON.Vector3(Math.PI / 2, 0, 0), new BABYLON.Color3(1, 0, 0)); // Red
-            const yArrow = createArrow(new BABYLON.Vector3(0, Math.PI / 2, 0), new BABYLON.Color3(0, 1, 0)); // Green
-            const zArrow = createArrow(new BABYLON.Vector3(0, 0, Math.PI / 2), new BABYLON.Color3(0, 0, 1)); // Blue
-
-            // Position arrows slightly away from the satellite
-            const offset = 2;
-            xArrow.position = new BABYLON.Vector3(offset, 0, 0);
-            yArrow.position = new BABYLON.Vector3(0, offset, 0);
-            zArrow.position = new BABYLON.Vector3(0, 0, offset);
-
-            // Fetch live telemetry data from the /live-data route
-            const fetchTelemetryData = async () => {
-                const response = await fetch(${BASE_URL}/live-data);
-                const telemetryData = await response.json();
-                console.log("Telemetry data:", telemetryData);
-                if (satellite) {
-                    // Update satellite position based on telemetry data
-                    const lat = telemetryData.latitude || 0;
-                    const lon = telemetryData.longitude || 0;
-                    satellite.position = new BABYLON.Vector3(lat, lon, 0);
-                    scene.render();
+                if (data.sent_time && data.altitude) {
+                    updateGraph(data);
                 }
-            };
 
-            setInterval(fetchTelemetryData, 5000);
-
-            return scene;
+                if (data.temperature_cj_c !== undefined) {
+                    document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
+                    updateTemperatureGraph(data);
+                }
+            } catch (error) {
+                console.error("Error updating live data:", error);
+            }
         };
 
-        const scene = createScene();
+        setInterval(updateLiveData, 1000);
 
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
+        async function fetchLatestMessage() {
+            try {
+                const response = await fetch(`${BASE_URL}/live-data`);
+                if (!response.ok) throw new Error('Failed to fetch live data');
+                const data = await response.json();
+
+                if (data.message) {
+                    document.getElementById('latest-message').textContent = `Message: ${data.message}`;
+                } else {
+                    document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
+                }
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        }
+
+        async function fetchMessageHistory() {
+            try {
+                const response = await fetch(`${BASE_URL}/message-history`);
+                if (!response.ok) throw new Error('Failed to fetch message history');
+                const historyData = await response.json();
+                const messageHistory = document.getElementById('message-history');
+                messageHistory.innerHTML = '';
+
+                historyData.forEach((msg, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${index + 1}. Sent at: ${msg.sent_time}, Message: ${msg.message}`;
+                    messageHistory.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Error fetching message history:', error);
+            }
+        }
     </script>
 </body>
 </html>
+
 
 
 
