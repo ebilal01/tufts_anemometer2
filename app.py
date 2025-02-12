@@ -65,28 +65,27 @@ def handle_rockblock():
     try:
         byte_data = bytearray.fromhex(data)
 
-        # Ensure it's exactly 50 bytes (sensor data size)
-        if len(byte_data) != 50:
-            print(f"Message size is incorrect: {len(byte_data)} bytes")
+        # Ensure it's at least 50 bytes (sensor data size)
+        min_expected_size = 50  
+        if len(byte_data) < min_expected_size:
+            print(f"Message too short: {len(byte_data)} bytes")
             return "FAILED,17,Invalid message length", 400
 
-        # Unpack the 50 bytes as per the specified structure
-        sensor_data = struct.unpack('IhfH16h', byte_data)  # Correct format for 50 bytes
+        # Unpack the first 50 bytes as structured data
+        sensor_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data[:50])
         sensor_data = list(sensor_data)
 
-        # Scale values where necessary (based on your sensor data format)
-        # Example: Scale the sensor data (lat/lon/alt, etc.) if needed
-        sensor_data[2] /= 1000000  # Latitude scale
-        sensor_data[3] /= 1000000  # Longitude scale
-        sensor_data[4] /= 10  # Altitude scale, if needed
-        # Sensor data from 16th byte to 50th byte
-        for i in range(5, 21):
-            sensor_data[i] /= 10  # Adjust scaling if necessary
+        # Scale values where necessary
+        for x in range(5, 12):  
+            sensor_data[x] /= 10  
+        for x in range(12, 15):  
+            sensor_data[x] /= 1000  
+        for x in range(15, 21):  
+            sensor_data[x] /= 100  
 
-        # Sent time (Unix timestamp converted to UTC)
         sent_time_utc = datetime.datetime.fromtimestamp(sensor_data[0], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-        # Extract extra message text if there are any
+        # Extract extra message text if there are additional bytes beyond 50
         extra_message = ""
         if len(byte_data) > 50:
             extra_bytes = byte_data[50:]  
@@ -101,7 +100,22 @@ def handle_rockblock():
             "latitude": sensor_data[2],
             "longitude": sensor_data[3],
             "altitude": sensor_data[4],
-            "sensor_data": sensor_data[5:],  # Store sensor data from byte 16 onwards
+            "pressure_mbar": sensor_data[5],
+            "temperature_pht_c": sensor_data[6],
+            "temperature_cj_c": sensor_data[7],
+            "temperature_tctip_c": sensor_data[8],
+            "roll_deg": sensor_data[9],
+            "pitch_deg": sensor_data[10],
+            "yaw_deg": sensor_data[11],
+            "vavg_1_mps": sensor_data[12],
+            "vavg_2_mps": sensor_data[13],
+            "vavg_3_mps": sensor_data[14],
+            "vstd_1_mps": sensor_data[15],
+            "vstd_2_mps": sensor_data[16],
+            "vstd_3_mps": sensor_data[17],
+            "vpk_1_mps": sensor_data[18],
+            "vpk_2_mps": sensor_data[19],
+            "vpk_3_mps": sensor_data[20],
             "message": extra_message if extra_message else "No extra message"
         }
 
@@ -115,9 +129,6 @@ def handle_rockblock():
     except Exception as e:
         print("Error processing data:", e)
         return "FAILED,15,Error processing message data", 400
-
-
-
 
 @app.route('/live-data', methods=['GET'])
 def get_live_data():
