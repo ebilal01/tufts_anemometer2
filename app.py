@@ -71,8 +71,8 @@ def handle_rockblock():
             print(f"Message too short: {len(byte_data)} bytes")
             return "FAILED,17,Invalid message length", 400
 
-        # Unpack the first 50 bytes as structured data
-        sensor_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data[:50])
+        # Unpack the first 12 bytes for IMEI, lat, lon, and other data
+        sensor_data = struct.unpack('IffHhhhhhhhhhhhhhhhh', byte_data[:50])  # Modify for lat/lon as floats (I for uint, f for float)
         sensor_data = list(sensor_data)
 
         # Scale values where necessary
@@ -97,8 +97,8 @@ def handle_rockblock():
             "sent_time": sent_time_utc,
             "unix_epoch": sensor_data[0],
             "siv": sensor_data[1],
-            "latitude": sensor_data[2],
-            "longitude": sensor_data[3],
+            "latitude": sensor_data[2],  # Now correctly unpacked
+            "longitude": sensor_data[3],  # Now correctly unpacked
             "altitude": sensor_data[4],
             "pressure_mbar": sensor_data[5],
             "temperature_pht_c": sensor_data[6],
@@ -129,6 +129,7 @@ def handle_rockblock():
     except Exception as e:
         print("Error processing data:", e)
         return "FAILED,15,Error processing message data", 400
+
 
 
 @app.route('/live-data', methods=['GET'])
