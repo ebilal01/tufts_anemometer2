@@ -70,8 +70,8 @@
         const flightPath = L.polyline([], { color: 'red' }).addTo(map);
         const marker = L.marker([0, 0]).addTo(map);
 
-       const updateMap = (latitude, longitude) => {
-    if (!latitude || !longitude) return;
+     const updateMap = (latitude, longitude) => {
+    if (latitude === undefined || longitude === undefined) return;  // Explicit undefined check
 
     const latLng = [latitude, longitude];
 
@@ -79,7 +79,7 @@
     flightPath.addLatLng(latLng);
     marker.setLatLng(latLng);
 
-    // Only update map bounds if we have multiple points
+    // Ensure map bounds update properly
     if (flightPath.getLatLngs().length > 1) {
         map.fitBounds(flightPath.getBounds());
     }
@@ -113,6 +113,30 @@
     };
 
     Plotly.react('graph', graphData, layout);
+};
+
+        const updateTemperatureGraph = (data) => {
+    if (!data.sent_time || data.temperature_cj_c === undefined) return;
+
+    const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
+    const temperatures = Array.isArray(data.temperature_cj_c) ? data.temperature_cj_c : [data.temperature_cj_c];
+
+    const tempGraphData = [{
+        x: timestamps,
+        y: temperatures,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'red' },
+        name: "Temperature (°C)"
+    }];
+
+    const layout = {
+        title: "Temperature Over Time",
+        xaxis: { title: "Time" },
+        yaxis: { title: "Temperature (°C)" }
+    };
+
+    Plotly.react('temperature-graph', tempGraphData, layout);
 };
 
 
@@ -183,7 +207,7 @@
             fetchLatestMessage();
         });
 
-        const updateLiveData = async () => {
+    const updateLiveData = async () => {
     try {
         const response = await fetch(`${BASE_URL}/live-data`);
         if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
@@ -191,20 +215,19 @@
         const data = await response.json();
         console.log("Telemetry Data:", data);
 
-        if (data.latitude && data.longitude) {
-            marker.setLatLng([data.latitude, data.longitude]);
-            map.setView([data.latitude, data.longitude], 8);
-            document.getElementById('lat').textContent = data.latitude.toFixed(6);
-            document.getElementById('lon').textContent = data.longitude.toFixed(6);
-        }
+        // Handle latitude/longitude updates properly
+        const latitude = data.latitude && Math.abs(data.latitude) > 1e-6 ? data.latitude : 0;
+        const longitude = data.longitude && Math.abs(data.longitude) > 1e-6 ? data.longitude : 0;
+        updateMap(latitude, longitude);
 
         if (data.sent_time && data.altitude) {
             updateGraph(data);
         }
 
-        // ✅ Ensure Temperature is Displayed
-        if (data.temp !== undefined) {
-            document.getElementById("temp").textContent = data.temp.toFixed(1);
+        // ✅ Ensure Temperature is Displayed Correctly
+        if (data.temperature_cj_c !== undefined) {
+            document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
+            updateTemperatureGraph(data);
         }
 
     } catch (error) {
