@@ -17,6 +17,7 @@
     <div id="map" style="height: 500px; width: 100%;"></div>
     <div id="graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
     <canvas id="renderCanvas" touch-action="none" style="width: 100%; height: 300px;"></canvas>
+    <div id="temperature-graph" style="height: 300px; width: 100%; margin-top: 20px;"></div>
 
     <!-- Label for Latitude and Longitude -->
     <!-- Label for Latitude and Longitude -->
@@ -69,60 +70,76 @@
         const flightPath = L.polyline([], { color: 'red' }).addTo(map);
         const marker = L.marker([0, 0]).addTo(map);
 
-        // Update the map with new coordinates
-        const updateMap = (latitude, longitude) => {
-            const latLng = [latitude, longitude];
-            flightPath.addLatLng(latLng);
-            marker.setLatLng(latLng);
-            map.fitBounds(flightPath.getBounds());
+       const updateMap = (latitude, longitude) => {
+    if (!latitude || !longitude) return;
 
-            // Update the label with the new coordinates
-            document.getElementById('lat').textContent = latitude.toFixed(6);
-            document.getElementById('lon').textContent = longitude.toFixed(6);
-        };
-        // Fetch and update data every second
-        setInterval(updateMap, 1000);
+    const latLng = [latitude, longitude];
 
-        // Improved Graph Update Function
-        const updateGraph = (data) => {
-            if (!data || !data.sent_time || !data.altitude) return;
+    // Add point to flight path
+    flightPath.addLatLng(latLng);
+    marker.setLatLng(latLng);
 
-            const timestamps = [data.sent_time];
-            const altitudes = [data.altitude];
+    // Only update map bounds if we have multiple points
+    if (flightPath.getLatLngs().length > 1) {
+        map.fitBounds(flightPath.getBounds());
+    }
 
-            const graphData = [{
-                x: timestamps,
-                y: altitudes,
-                type: 'scatter',
-                mode: 'lines+markers',
-                line: { color: 'blue' }
-            }];
-
-            Plotly.react('graph', graphData);
-        };
-
-        // Fetch and update data every second
-        setInterval(updateGraph, 1000);
+    // Update coordinate labels
+    document.getElementById('lat').textContent = latitude.toFixed(6);
+    document.getElementById('lon').textContent = longitude.toFixed(6);
+};
 
 
-        // Fetch the live data from the /live-data endpoint
-        const fetchData = async () => {
-            try {
-                const response = await fetch(`${baseURL}/live-data`);
-                if (!response.ok) throw new Error('Failed to fetch live data');
-                const data = await response.json();
+       const updateGraph = (data) => {
+    if (!data || !data.sent_time || !data.altitude) return;
 
-                if (data.latitude && data.longitude) {
-                    updateMap(data.latitude, data.longitude);
-                }
+    // Convert data into an array for consistent updates
+    const timestamps = Array.isArray(data.sent_time) ? data.sent_time : [data.sent_time];
+    const altitudes = Array.isArray(data.altitude) ? data.altitude : [data.altitude];
 
-                if (data.timestamps && data.altitudes) {
-                    updateGraph(data.timestamps, data.altitudes);
-                }
-            } catch (error) {
-                console.error('Error fetching live data:', error);
-            }
-        };
+    const graphData = [{
+        x: timestamps,
+        y: altitudes,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'blue' },
+        name: "Altitude (m)"
+    }];
+
+    const layout = {
+        title: "Altitude Over Time",
+        xaxis: { title: "Time" },
+        yaxis: { title: "Altitude (m)" }
+    };
+
+    Plotly.react('graph', graphData, layout);
+};
+
+
+
+      const fetchData = async () => {
+    try {
+        const response = await fetch(`${BASE_URL}/live-data`);
+        if (!response.ok) throw new Error('Failed to fetch live data');
+        const data = await response.json();
+
+        if (data.latitude && data.longitude) {
+            updateMap(data.latitude, data.longitude);
+        }
+
+        if (data.sent_time && data.altitude) {
+            updateGraph(data);
+        }
+
+        if (data.sent_time && data.temp !== undefined) {
+            updateTemperatureGraph(data);
+        }
+
+    } catch (error) {
+        console.error('Error fetching live data:', error);
+    }
+};
+
 
         // Fetch historical flight data from the /history endpoint
         const fetchHistory = async () => {
@@ -151,11 +168,12 @@
 
     
 
-        // On page load, fetch the history and then fetch live data every 5 seconds
         window.onload = async () => {
-            await fetchHistory();  // Fetch historical data on page load
-            setInterval(fetchData, 5000);  // Fetch live data every 5 seconds
-        };
+    await fetchHistory();  // Load past data on startup
+    fetchData();  // Fetch live data once immediately
+    setInterval(fetchData, 5000);  // Fetch new data every 5 seconds
+};
+
 
 
 
