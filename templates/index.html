@@ -70,24 +70,27 @@
         const flightPath = L.polyline([], { color: 'red' }).addTo(map);
         const marker = L.marker([0, 0]).addTo(map);
 
-     const updateMap = (latitude, longitude) => {
-    if (latitude === undefined || longitude === undefined) return;  // Explicit undefined check
+    const updateMap = (data) => {
+        // Ensure all necessary data is available
+        const latitude = data.latitude !== undefined ? data.latitude : 0;
+        const longitude = data.longitude !== undefined ? data.longitude : 0;
 
-    const latLng = [latitude, longitude];
+        // Update Map
+        if (latitude !== 0 && longitude !== 0) {
+            const latLng = [latitude, longitude];
+            flightPath.addLatLng(latLng);
+            marker.setLatLng(latLng);
 
-    // Add point to flight path
-    flightPath.addLatLng(latLng);
-    marker.setLatLng(latLng);
+            if (flightPath.getLatLngs().length > 1) {
+                map.fitBounds(flightPath.getBounds());
+            }
+        }
 
-    // Ensure map bounds update properly
-    if (flightPath.getLatLngs().length > 1) {
-        map.fitBounds(flightPath.getBounds());
-    }
-
-    // Update coordinate labels
-    document.getElementById('lat').textContent = latitude.toFixed(6);
-    document.getElementById('lon').textContent = longitude.toFixed(6);
-};
+        // Update Labels for Latitude, Longitude, and Temperature
+        document.getElementById('lat').textContent = latitude.toFixed(6);
+        document.getElementById('lon').textContent = longitude.toFixed(6);
+        document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1); // Temperature Display
+    };
 
 
        const updateGraph = (data) => {
@@ -141,32 +144,34 @@
 
 
 
+    // Modify the fetching process to include lat/lon updates.
     const fetchData = async () => {
-    try {
-        const response = await fetch(`${BASE_URL}/live-data`);
-        if (!response.ok) throw new Error('Failed to fetch live data');
-        const data = await response.json();
+        try {
+            const response = await fetch(`${BASE_URL}/live-data`);
+            if (!response.ok) throw new Error('Failed to fetch live data');
+            const data = await response.json();
 
-        // Ensure latitude and longitude update correctly
-        if (data.latitude !== undefined && data.longitude !== undefined) {
-            updateMap(data.latitude, data.longitude);
-            document.getElementById('lat').textContent = data.latitude.toFixed(6);
-            document.getElementById('lon').textContent = data.longitude.toFixed(6);
+            // Update map and labels for lat, lon
+            updateMap(data);
+
+            if (data.sent_time && data.altitude) {
+                updateGraph(data);
+            }
+
+            if (data.sent_time && data.temperature_cj_c !== undefined) {
+                updateTemperatureGraph(data);
+            }
+
+        } catch (error) {
+            console.error('Error fetching live data:', error);
         }
+    };
 
-        if (data.sent_time && data.altitude) {
-            updateGraph(data);
-        }
-
-        if (data.sent_time && data.temperature_cj_c !== undefined) {
-            updateTemperatureGraph(data);
-            document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
-        }
-
-    } catch (error) {
-        console.error('Error fetching live data:', error);
-    }
-};
+    // Call fetchData initially
+    window.onload = async () => {
+        fetchData();
+        setInterval(fetchData, 5000);  // Refresh every 5 seconds
+    };
 
 
 
