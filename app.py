@@ -132,7 +132,19 @@ def handle_rockblock():
 
 @app.route('/live-data', methods=['GET'])
 def get_live_data():
-    return jsonify(message_history[-1] if message_history else {"message": "No data received yet"})
+    # Assuming message_history is populated with your data
+    if message_history:
+        last_data = message_history[-1]
+        # Ensure you return the correct fields for latitude, longitude, and temperature
+        return jsonify({
+            "latitude": last_data.get("latitude", 0),
+            "longitude": last_data.get("longitude", 0),
+            "temperature_cj_c": last_data.get("temperature_cj_c", 0),  # Adding temperature
+            "sent_time": last_data.get("sent_time", ""),
+            "altitude": last_data.get("altitude", 0)
+        })
+    return jsonify({"message": "No data received yet"})
+
 
 @app.route('/flight-data', methods=['GET'])
 def live_data():
