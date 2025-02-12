@@ -134,7 +134,6 @@ def handle_rockblock():
 def get_live_data():
     return jsonify(message_history[-1] if message_history else {"message": "No data received yet"})
 
-
 @app.route('/flight-data', methods=['GET'])
 def live_data():
     # Ensure message_data exists or is simulated correctly
@@ -188,7 +187,7 @@ def animation_data():
     return jsonify(telemetry_data)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000) don't change anything else than to accomplish that 
 
 
 
