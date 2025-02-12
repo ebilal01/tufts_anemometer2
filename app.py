@@ -187,7 +187,7 @@ def animation_data():
     return jsonify(telemetry_data)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000) don't change anything else than to accomplish that 
+    app.run(host='0.0.0.0', port=5000) 
 
 
 
