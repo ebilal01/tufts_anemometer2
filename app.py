@@ -72,7 +72,8 @@ def handle_rockblock():
             return "FAILED,17,Invalid message length", 400
 
         # Unpack the first 50 bytes as structured data
-        sensor_data = struct.unpack('<IffHhhhhhhhhhhhhhhhh', byte_data[:50])
+        sensor_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data[:50])
+
         sensor_data = list(sensor_data)
 
         # Scale values where necessary
