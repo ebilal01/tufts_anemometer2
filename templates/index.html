@@ -141,28 +141,33 @@
 
 
 
-      const fetchData = async () => {
+    const fetchData = async () => {
     try {
         const response = await fetch(`${BASE_URL}/live-data`);
         if (!response.ok) throw new Error('Failed to fetch live data');
         const data = await response.json();
 
-        if (data.latitude && data.longitude) {
+        // Ensure latitude and longitude update correctly
+        if (data.latitude !== undefined && data.longitude !== undefined) {
             updateMap(data.latitude, data.longitude);
+            document.getElementById('lat').textContent = data.latitude.toFixed(6);
+            document.getElementById('lon').textContent = data.longitude.toFixed(6);
         }
 
         if (data.sent_time && data.altitude) {
             updateGraph(data);
         }
 
-        if (data.sent_time && data.temp !== undefined) {
+        if (data.sent_time && data.temperature_cj_c !== undefined) {
             updateTemperatureGraph(data);
+            document.getElementById("temp").textContent = data.temperature_cj_c.toFixed(1);
         }
 
     } catch (error) {
         console.error('Error fetching live data:', error);
     }
 };
+
 
 
         // Fetch historical flight data from the /history endpoint
